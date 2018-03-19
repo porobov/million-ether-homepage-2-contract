@@ -66,13 +66,16 @@ contract('MillionEther', function(accounts) {
 
     return MillionEther.deployed().then(function(instance) {
         me2 = instance;
-        return me2.import_old_me(19, 19, {from: owner, gas: 4712388});
-    }).then(function(tx) {
-        logGas(tx, "import_old_me")
-        return me2.blocks.call(19, 19);
-    }).then(function(blockInfo) {
-        block_owner_1 = blockInfo[0];
-        assert.equal(block_owner_1.toLowerCase(), "0xCA9f7D9aD4127e374cdaB4bd0a884790C1B03946".toLowerCase(), "old ME was not set correctly");
+        return MEStorage.deployed().then(function(instance) {
+            me2storage = instance;
+            return me2.import_old_me(19, 19, {from: owner, gas: 4712388});
+        }).then(function(tx) {
+            logGas(tx, "import_old_me")
+            return me2storage.blocks.call(19, 19);
+        }).then(function(blockInfo) {
+            block_owner_1 = blockInfo[0];
+            assert.equal(block_owner_1.toLowerCase(), "0xCA9f7D9aD4127e374cdaB4bd0a884790C1B03946".toLowerCase(), "old ME was not imported correctly");
+        });
     });
   });
 
@@ -413,35 +416,34 @@ contract('MillionEther', function(accounts) {
 
     return MillionEther.deployed().then(function(instance) {
         me2 = instance;
-    //     return me2.blocksSold.call();
-    // }).then(function(blocksSold) {
-    //     blocksSold_init = blocksSold.toNumber();
-        return me2.setNewBlockOwner(xy, xy, buer_1, {from: buer_1, gas: 4712388});
-    }).then(function(tx) {
-        logGas(tx, "setNewBlockOwner");
-        return me2.blocks.call(xy, xy);
-    }).then(function(blockInfo) {
-        block_owner_1 = blockInfo[0];
-    //     return me2.blocksSold.call();
-    // }).then(function(blocksSold) {
-    //     blocksSold_1st_buy = blocksSold.toNumber();
+        return MEStorage.deployed().then(function(instance) {
+            me2storage = instance;
+            return me2.setNewBlockOwner(xy, xy, buer_1, {from: buer_1, gas: 4712388});
+        }).then(function(tx) {
+            logGas(tx, "setNewBlockOwner");
+            return me2storage.blocks.call(xy, xy);
+        }).then(function(blockInfo) {
+            block_owner_1 = blockInfo[0];
+        //     return me2.blocksSold.call();
+        // }).then(function(blocksSold) {
+        //     blocksSold_1st_buy = blocksSold.toNumber();
 
-        //new owner for the same block
-        return me2.setNewBlockOwner(xy, xy, buer_2, {from: buer_2, gas: 4712388});
-    }).then(function(tx) {
-        logGas(tx, "resetNewBlockOwner");
-        return me2.blocks.call(xy, xy);
-    }).then(function(blockInfo) {
-        block_owner_2 = blockInfo[0];
-    //     return me2.blocksSold.call();
-    // }).then(function(blocksSold) {
-    //     blocksSold_2nd_buy = blocksSold.toNumber();
+            //new owner for the same block
+            return me2.setNewBlockOwner(xy, xy, buer_2, {from: buer_2, gas: 4712388});
+        }).then(function(tx) {
+            logGas(tx, "resetNewBlockOwner");
+            return me2storage.blocks.call(xy, xy);
+        }).then(function(blockInfo) {
+            block_owner_2 = blockInfo[0];
+        //     return me2.blocksSold.call();
+        // }).then(function(blocksSold) {
+        //     blocksSold_2nd_buy = blocksSold.toNumber();
 
-        //assert.equal(blocksSold_1st_buy - blocksSold_init, 1, "the blocksSold didn't increment");
-        assert.equal(block_owner_1, buer_1, "the block owner wasn't set");
-        // assert.equal(blocksSold_1st_buy - blocksSold_2nd_buy, 0, "the blocksSold incremented when buying from owner");
-        assert.equal(block_owner_2, buer_2, "the block owner wasn't reset");
-
+            //assert.equal(blocksSold_1st_buy - blocksSold_init, 1, "the blocksSold didn't increment");
+            assert.equal(block_owner_1, buer_1, "the block owner wasn't set");
+            // assert.equal(blocksSold_1st_buy - blocksSold_2nd_buy, 0, "the blocksSold incremented when buying from owner");
+            assert.equal(block_owner_2, buer_2, "the block owner wasn't reset");
+        });
     });
   });
 
@@ -453,18 +455,21 @@ contract('MillionEther', function(accounts) {
 
     return MillionEther.deployed().then(function(instance) {
         me2 = instance;
-        return me2.buyBlocks(1, 1, 10, 10, {from: buer_1, value: web3.toWei(1, 'ether'), gas: 4712388});
-    }).then(function(tx) {
-        logGas(tx, "buyBlocks");
-        return me2.blocks.call(1, 1);
-    }).then(function(blockInfo) {
-        block_owner_1_1 = blockInfo[0];
-        return me2.blocks.call(2, 2);
-    }).then(function(blockInfo) {
-        block_owner_2_2 = blockInfo[0];
+        return MEStorage.deployed().then(function(instance) {
+            me2storage = instance;
+            return me2.buyBlocks(1, 1, 10, 10, {from: buer_1, value: web3.toWei(1, 'ether'), gas: 4712388});
+        }).then(function(tx) {
+            logGas(tx, "buyBlocks");
+            return me2storage.blocks.call(1, 1);
+        }).then(function(blockInfo) {
+            block_owner_1_1 = blockInfo[0];
+            return me2storage.blocks.call(2, 2);
+        }).then(function(blockInfo) {
+            block_owner_2_2 = blockInfo[0];
 
-        assert.equal(block_owner_1_1, buer_1, "the block 1x1 owner wasn't set");
-        assert.equal(block_owner_2_2, buer_1, "the block 2x2 owner wasn't set");
+            assert.equal(block_owner_1_1, buer_1, "the block 1x1 owner wasn't set");
+            assert.equal(block_owner_2_2, buer_1, "the block 2x2 owner wasn't set");
+        });
     });
   });
 

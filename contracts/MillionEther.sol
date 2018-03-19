@@ -19,28 +19,7 @@ pragma solidity ^0.4.18;
 
 import "./OldeMillionEther.sol";
 import "./MEStorage.sol";
-
-contract Owned {
-  address public owner;
-
-  //@dev The Owned constructor sets the original `owner` of the contract to the sender
-  //account.
-  function Owned() {
-    owner = msg.sender;
-  }
-
-  modifier onlyOwner() {
-    require(msg.sender == owner);
-    _;
-  }
-
-  function transferOwnership(address newOwner) public onlyOwner {
-    if (newOwner != address(0)) {
-      owner = newOwner;
-    }
-  }
-
-}
+import "./Owned.sol";
 
 contract MillionEther is Owned{
 
@@ -49,7 +28,7 @@ contract MillionEther is Owned{
     uint8 public blocksImported;
     // address public oldMillionEtherAddr;
     OldeMillionEther oldMillionEther;
-    MEStorage meStorage;
+    MEStorage strg;
 
     // Users and balances
     uint public charityBalance = 0;
@@ -57,7 +36,7 @@ contract MillionEther is Owned{
     mapping(address => bool) public bannedUsers;
     address[] public addressList;
 
-    // Blocks 1 
+    // Blocks
     struct Block {          //Blocks are 10x10 pixel areas. There are 10 000 blocks.
         address landlord;   //owner
         address renter;     //renter address
@@ -66,10 +45,7 @@ contract MillionEther is Owned{
         uint rentedTill;    //rented at day
     }
     Block[101][101] public blocks; 
-    //Block[10001] public blocks; 
-    uint16  public blocksSold = 0;
-
-    
+    //uint16  public blocksSold = 0;
 
     // Events  //TODO indexed
     event NewAreaStatus (uint ID, uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, uint price);
@@ -78,24 +54,17 @@ contract MillionEther is Owned{
 
 // ** INITIALIZE ** //
 
-    function MillionEther (address _meStorageAddr, address _oldMillionEtherAddr) public {
-        // oldMillionEtherAddr = _oldMillionEtherAddr;
+    function MillionEther (address _strgAddr, address _oldMillionEtherAddr) public {
         oldMillionEther = OldeMillionEther(_oldMillionEtherAddr);
-        meStorage = MEStorage(_meStorageAddr);
+        strg = MEStorage(_strgAddr);
         ethUSDCentsPrice = 100000;  // $1000
     }
 
-    function sBlockOwner(uint8 _x, uint8 _y, address _newOwner) public {
-        meStorage.setBlockOwner(_x, _y, _newOwner);
-    }
-    function getBlockOwner(uint8 _x, uint8 _y) public returns (address) {
-        return meStorage.getBlockOwner(_x, _y);
-    }
 
 // ** FUNCTION MODIFIERS (PERMISSIONS) ** //
 
     modifier onlyForSale (uint8 _x, uint8 _y) {
-        require(blocks[_x][_y].landlord == address(0x0));  //|| blocks[_x][_y].sellPrice != 0));
+        require(strg.getBlockOwner(_x, _y) == address(0x0));  //|| blocks[_x][_y].sellPrice != 0));
         _;
     }
 
@@ -106,13 +75,13 @@ contract MillionEther is Owned{
     }
 
     modifier onlyAuthorized (uint8 _x, uint8 _y) {
-        require(blocks[_x][_y].landlord == msg.sender || blocks[_x][_y].landlord == owner);
+        require(strg.getBlockOwner(_x, _y) == msg.sender || strg.getBlockOwner(_x, _y) == owner);
         _;
     }
 
     modifier onlyByLandlord (uint8 _x, uint8 _y) {
         if (msg.sender != owner) {
-            require(blocks[_x][_y].landlord == msg.sender);
+            require(strg.getBlockOwner(_x, _y) == msg.sender);
         }
         _;
     }
@@ -137,20 +106,22 @@ contract MillionEther is Owned{
     }
 
     function depositTo(address _recipient, uint _amount) public returns (bool) { // TODO private
-        require (balances[_recipient] + _amount > balances[_recipient]); //checking for overflow
-        balances[_recipient] += _amount;
+        uint balance = strg.getBal(_recipient);
+        require (balance + _amount > balance); //checking for overflow
+        strg.setBal(balance + _amount, _recipient);
         return true;
     }
 
     function deductFrom(address _payer, uint _amount) public returns (bool) {  // TODO private
-        require (balances[_payer] >= _amount);
-        balances[_payer] -= _amount;
+        uint balance = strg.getBal(_payer);
+        require (balance >= _amount);
+        strg.setBal(balance - _amount, _payer);
         return true;
     }
 
     // reward admin and charity
     function payOwnerAndCharity (uint _amount) public {  // TODO private
-        uint goesToCharity = _amount * charityPercent(blocksSold) / 100;
+        uint goesToCharity = _amount * charityPercent(strg.getBlocksSold()) / 100;
         charityBalance += goesToCharity;
         depositTo(owner, _amount - goesToCharity);  //TODO check negative balance
     }
@@ -175,23 +146,22 @@ contract MillionEther is Owned{
     // }
 
     function getBlockPrice (uint8 _x, uint8 _y, uint8 _iBlocksSold) public view returns (uint, address) {
-        if (blocks[_x][_y].landlord == address(0x0)) { 
+        if (strg.getBlockOwner(_x, _y) == address(0x0)) { 
             // when buying at initial sale price doubles every 1000 blocks sold
             return (convertUSDtoWEI(crowdsaleUSDPrice(_iBlocksSold), ethUSDCentsPrice), address(0x0));
         } else {
             // the block is already bought and landlord have set a sell price
-            return (blocks[_x][_y].sellPrice, blocks[_x][_y].landlord);
+            return (strg.getSellPrice(_x, _y), strg.getBlockOwner(_x, _y));
         }
     }
 
-    function setNewBlockOwner(uint8 x, uint8 y, address _newOnwer) public returns (bool) {  //TODO make private
-        // blocks[x][y].landlord = _newOnwer;
-        sBlockOwner(x, y, _newOnwer);
+    function setNewBlockOwner(uint8 _x, uint8 _y, address _newOwner) public returns (bool) {  //TODO make private
+        strg.setBlockOwner(_x, _y, _newOwner);
         return true;
     }
 
     function incrementBlocksSold(uint16 _iBlocksSold) public { //TODO make private
-        blocksSold += _iBlocksSold;
+        strg.setBlocksSold(strg.getBlocksSold() + _iBlocksSold);
     }
 
     function buyBlock (uint8 x, uint8 y, uint8 _iBlocksSold)
@@ -229,8 +199,8 @@ contract MillionEther is Owned{
     function sellBlock (uint8 x, uint8 y, uint sellPrice) 
         private
         onlyByLandlord (x, y) 
-    {
-        blocks[x][y].sellPrice = sellPrice;
+    {   
+        strg.setSellPrice(x, y, sellPrice);
     }
 
     // sell an area of blocks at coordinates [fromX, fromY, toX, toY]
@@ -285,13 +255,13 @@ contract MillionEther is Owned{
 
     function import_old_me(uint8 _x, uint8 _y) public returns (bool) {
         require(blocksImported <= 105);  //why 105?!
-        require(blocks[_x][_y].landlord == address(0x0));
+        require(strg.getBlockOwner(_x, _y) == address(0x0));
         address landlord;
-        uint imageID; 
+        uint imageID;
         uint sellPrice;
         (landlord, imageID, sellPrice) = oldMillionEther.getBlockInfo(_x, _y);
         require(landlord != address(0x0));
-        blocks[_x][_y].landlord = landlord;
+        strg.setBlockOwner(_x, _y, landlord);
         blocksImported++;
         return true;
     }
