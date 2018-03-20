@@ -9,8 +9,8 @@ contract MEStorage is Owned{
     address oldMillionEtherAddress;
     address oracleAddres;
 
-    enum level {ORACLE, FULL}
-    mapping(address => level) accessLevel;
+    enum level {NONE, ORACLE, FULL}
+    mapping(address => level) public accessLevel;
 
     uint public ethUSDCentsPrice;  //1 eth price in cents
     uint public numImages;
@@ -63,6 +63,14 @@ contract MEStorage is Owned{
         return balances[_user];
     }
 
+    function setCharityBalance(uint _newBal) external access(level.FULL){
+        charityBalance = _newBal;
+    } 
+
+    function getCharityBalance() external view returns (uint) {
+        return charityBalance;
+    }
+
     // Blocks
     function setBlocksSold(uint16 _blocksSold) external access(level.FULL){
         numBlocksSold = _blocksSold;
@@ -87,4 +95,13 @@ contract MEStorage is Owned{
     function getSellPrice(uint8 _x, uint8 _y) external view returns (uint) {
         return blocks[_x][_y].sellPrice;
     } 
+
+    // images
+    function setNumImages(uint _numImages) external access(level.FULL){
+        numImages = _numImages;
+    } 
+
+    function getNumImages() external view returns (uint) {
+        return numImages;
+    }
 }

@@ -122,7 +122,7 @@ contract MillionEther is Owned{
     // reward admin and charity
     function payOwnerAndCharity (uint _amount) public {  // TODO private
         uint goesToCharity = _amount * charityPercent(strg.getBlocksSold()) / 100;
-        charityBalance += goesToCharity;
+        strg.setCharityBalance(strg.getCharityBalance() + goesToCharity);  // TODO overflow
         depositTo(owner, _amount - goesToCharity);  //TODO check negative balance
     }
 
@@ -243,7 +243,7 @@ contract MillionEther is Owned{
                 checkAuth (ix, iy);
             }
         }
-        numImages++;
+        strg.setNumImages(strg.getNumImages() + 1);
         NewImage(numImages, fromX, fromY, toX, toY, imageSourceUrl, adUrl, adText);  // TODO add emit at production
         return numImages;
     }

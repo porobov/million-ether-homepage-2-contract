@@ -501,7 +501,7 @@ contract OldeMillionEther {
     function set_current_state() public {
         blocks[19][19].landlord = 0xCA9f7D9aD4127e374cdaB4bd0a884790C1B03946;
         blocks[46][7].landlord = 0x26bFdbfF9008693398fB8854db0d953aF4aF3e55;
-        blocks[1][1].landlord = 0x95fdB8BB2167d7DA27965952CD4c15dA6Ac46d60;
+        //blocks[1][1].landlord = 0x95fdB8BB2167d7DA27965952CD4c15dA6Ac46d60;
         blocks[2][1].landlord = 0x003E5d6ddcf2Ce510c935bded1d666D3e601dAdF;
         blocks[2][2].landlord = 0x003E5d6ddcf2Ce510c935bded1d666D3e601dAdF;
         blocks[3][1].landlord = 0x003E5d6ddcf2Ce510c935bded1d666D3e601dAdF;

@@ -5,7 +5,7 @@ var OldeMillionEther = artifacts.require("./OldeMillionEther.sol");
 module.exports = function(deployer) {
   deployer.deploy(MillionEther, MEStorage.address, OldeMillionEther.address).then(() => {
     MEStorage.deployed().then(inst => {
-        return inst.setPermissions(MillionEther.address, 1);
+        return inst.setPermissions(MillionEther.address, 2);
     });
   });
 };
