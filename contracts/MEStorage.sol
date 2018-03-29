@@ -4,26 +4,12 @@ import "./Owned.sol";
 
 contract MEStorage is Owned{
 
-    // main settings
+    // Access
     address millionEtherAddress;
-    address oldMillionEtherAddress;
-    address oracleAddres;
-
     enum level {NONE, ORACLE, FULL}
     mapping(address => level) public accessLevel;
 
-    uint public ethUSDCentsPrice;  //1 eth price in cents
-    uint public numImages;
-    uint8 public blocksImported;
-    // address public oldMillionEtherAddr;
-
-    // Users and balances
-    uint public charityBalance = 0;
-    mapping(address => uint) public balances;       //charity purposes too
-    mapping(address => bool) public bannedUsers;
-    address[] public addressList;
-
-    // Blocks 1 
+    // Blocks
     struct Block {          //Blocks are 10x10 pixel areas. There are 10 000 blocks.
         address landlord;   //owner
         address renter;     //renter address
@@ -32,9 +18,10 @@ contract MEStorage is Owned{
         uint rentedTill;    //rented at day
     }
     Block[101][101] public blocks; 
-    uint16  public numBlocksSold = 0;
 
-    // Settings
+    // Moderation
+    mapping(address => bool) public bannedUsers;  // Allowed only to buy/sell, rent blocks. Not allowed to place images. 
+
     modifier access(level _level) {
         require(accessLevel[msg.sender] >= _level);
         _;
@@ -44,64 +31,39 @@ contract MEStorage is Owned{
         accessLevel[_newClient] = level(_permissionLevel);
     }
 
-    // function setOracle(address _newOracleAddress) onlyOwner returns (bool) {
-    //     oracleAddres = _newOracleAddress;
-    //     return true;
-    // }
-
-    // function setInterface() onlyOwner returns (bool) {
-    //     millionEtherAddress = _millionEtherAddress;
-    //     return true;
-    // }
-
-    // Users and balances
-    function setBal(uint _newBal, address _user) external access(level.FULL){
-        balances[_user] = _newBal;
-    } 
-
-    function getBal(address _user) external view returns (uint) {
-        return balances[_user];
-    }
-
-    function setCharityBalance(uint _newBal) external access(level.FULL){
-        charityBalance = _newBal;
-    } 
-
-    function getCharityBalance() external view returns (uint) {
-        return charityBalance;
-    }
-
     // Blocks
-    function setBlocksSold(uint16 _blocksSold) external access(level.FULL){
-        numBlocksSold = _blocksSold;
-    } 
 
-    function getBlocksSold() external view returns (uint16) {
-        return numBlocksSold;
-    } 
+    // function getBlockID (uint8 _x, uint8 _y) public pure returns (uint16) {
+    //     return (uint16(_y) - 1) * 100 + uint16(_x);
+    // }
 
     function setBlockOwner(uint8 _x, uint8 _y, address _newOwner) external access(level.FULL){
         blocks[_x][_y].landlord = _newOwner;
-    } 
-
-    function getBlockOwner(uint8 _x, uint8 _y) external view returns (address) {
-        return blocks[_x][_y].landlord;
     } 
 
     function setSellPrice(uint8 _x, uint8 _y, uint _sellPrince) external access(level.FULL){
         blocks[_x][_y].sellPrice = _sellPrince;
     } 
 
+    function getBlockOwner(uint8 _x, uint8 _y) external view returns (address) {
+        return blocks[_x][_y].landlord;
+    } 
+
     function getSellPrice(uint8 _x, uint8 _y) external view returns (uint) {
         return blocks[_x][_y].sellPrice;
     } 
 
-    // images
-    function setNumImages(uint _numImages) external access(level.FULL){
-        numImages = _numImages;
+    function getRenter(uint8 _x, uint8 _y) external view returns (address) {
+        return address(0x0);
     } 
 
-    function getNumImages() external view returns (uint) {
-        return numImages;
-    }
+    function getHourlyRent(uint8 _x, uint8 _y) external view returns (uint) {
+        return 0;
+    } 
+
+    function getRentedTill(uint8 _x, uint8 _y) external view returns (uint) {
+        return 0;
+    } 
+
+    // TODO fallback function
 }

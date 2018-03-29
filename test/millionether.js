@@ -34,6 +34,7 @@ contract('MillionEther', function(accounts) {
   var owner = web3.eth.accounts[0]
   var user_1 = web3.eth.accounts[1]
   var user_2 = web3.eth.accounts[2]
+  var charityAddress = '0x616c6C20796F75206e656564206973206C6f7665'
 
   // Helpers
 
@@ -119,7 +120,7 @@ contract('MillionEther', function(accounts) {
     });
   });
     
-  it("should double block price in USD every 1000 blocks sold (crowdsaleUSDPrice private in future)", function() {
+  it("should double block price in USD every 1000 blocks sold (crowdsaleUSDPrice, private in production)", function() {
 
     var start_price;
     var price_before_1000;
@@ -149,13 +150,7 @@ contract('MillionEther', function(accounts) {
   });
 
 
-
-
-
-
-
-
-  it("should convert dollars to ether (convertUSDtoWEI private in future)", function() {
+  it("should convert dollars to ether (convertUSDtoWEI, private in production))", function() {
 
     var ethUSDcents = 100000;
     var converted_1_USD;
@@ -181,14 +176,7 @@ contract('MillionEther', function(accounts) {
   });
   
 
-
-
-
-
-
-
-
-  it("should calculate charity percent (charityPercent private in future)", function() {
+  it("should calculate charity percent (charityPercent, private in production)", function() {
 
     var charity_percent_at_start;
     var charity_before_1000;
@@ -223,12 +211,6 @@ contract('MillionEther', function(accounts) {
 
 
 
-
-
-
-
-
-
   it("should deposit and deduct funds (depositTo/deductFrom, private in production)", function() {
 
     var recipient = user_1;
@@ -242,17 +224,17 @@ contract('MillionEther', function(accounts) {
         me2 = instance;
         return MEStorage.deployed().then(function(instance) {
             me2storage = instance;
-            return me2storage.balances.call(recipient);
+            return me2.balances.call(recipient);
         }).then(function(bal) {
             balance_before = bal.toNumber();
             return me2.depositTo(recipient, deposit, {from: recipient, gas: 4712388});
         }).then(function(tx) {
-            return me2storage.balances.call(recipient);
+            return me2.balances.call(recipient);
         }).then(function(bal) {
             balance_after_deposit = bal.toNumber();
             return me2.deductFrom(recipient, deduct, {from: recipient, gas: 4712388});
         }).then(function(tx) {
-            return me2storage.balances.call(recipient);
+            return me2.balances.call(recipient);
         }).then(function(bal) {
             balance_after_deduction = bal.toNumber();
 
@@ -265,11 +247,6 @@ contract('MillionEther', function(accounts) {
   });
 
 
-
-
-
-
-
   it("should increment blocksSold (incrementBlocksSold, private in production)", function() {
     
     var blocksSold_before;
@@ -280,14 +257,14 @@ contract('MillionEther', function(accounts) {
         me2 = instance;
         return MEStorage.deployed().then(function(instance) {
             me2storage = instance;
-            return me2storage.numBlocksSold.call();
+            return me2.blocksSold.call();
         }).then(function(blcks) {
             blocksSold_before = blcks.toNumber();
             return me2.incrementBlocksSold(0, {from: user_1, gas: 4712388});
         }).then(function(tx) {
             return me2.incrementBlocksSold(increment_by, {from: user_1, gas: 4712388});
         }).then(function(tx) {
-            return me2storage.numBlocksSold.call();
+            return me2.blocksSold.call();
         }).then(function(blcks) {
             blocksSold_after = blcks.toNumber();
 
@@ -296,12 +273,6 @@ contract('MillionEther', function(accounts) {
         });
     });
   });
-
-
-
-
-
-
 
 
   it("should pay contact owner and charity (payOwnerAndCharity, private in production)", function() {
@@ -322,13 +293,14 @@ contract('MillionEther', function(accounts) {
         return MEStorage.deployed().then(function(instance) {
             me2storage = instance;
             //initial conditions
-            return me2storage.balances.call(owner);
+            return me2.balances.call(owner);
         }).then(function(bal) {
             owner_bal_before = bal.toNumber();
-            return me2storage.charityBalance.call();
+            return me2.balances.call(charityAddress);
         }).then(function(bal) {
+            
             char_bal_before = bal.toNumber();
-            return me2storage.numBlocksSold.call();
+            return me2.blocksSold.call();
         }).then(function(blcks) {
             //1st round
             increment_by = border - blcks.toNumber() - 1;  // to make it 999
@@ -336,10 +308,10 @@ contract('MillionEther', function(accounts) {
         }).then(function(tx) {
             return me2.payOwnerAndCharity(amount_1);
         }).then(function(tx) {
-            return me2storage.balances.call(owner);
+            return me2.balances.call(owner);
         }).then(function(bal) {
             owner_bal_1 = bal.toNumber();
-            return me2storage.charityBalance.call();
+            return me2.balances.call(charityAddress);
         }).then(function(bal) {
             char_bal_1 = bal.toNumber();        
             //2nd round
@@ -348,10 +320,10 @@ contract('MillionEther', function(accounts) {
         }).then(function(tx) {
             return me2.payOwnerAndCharity(amount_2);
         }).then(function(tx) {
-            return me2storage.balances.call(owner);
+            return me2.balances.call(owner);
         }).then(function(bal) {
             owner_bal_2 = bal.toNumber();
-            return me2storage.charityBalance.call();
+            return me2.balances.call(charityAddress);
         }).then(function(bal) {
             char_bal_2 = bal.toNumber();
 
@@ -367,9 +339,6 @@ contract('MillionEther', function(accounts) {
     });
   });
 
-
-
-
   it("should pay blockPrice to blockOwner (payBlockOwner, private in production)", function() {
     
     var block_owner = user_1;
@@ -382,30 +351,30 @@ contract('MillionEther', function(accounts) {
         return MEStorage.deployed().then(function(instance) {
             me2storage = instance;
             // initial state
-            return me2storage.balances.call(owner);
+            return me2.balances.call(owner);
         }).then(function(bal) {
             contract_owner_bal_before = bal.toNumber();
-            return me2storage.balances.call(block_owner);
+            return me2.balances.call(block_owner);
         }).then(function(bal) {
             block_owner_bal_before = bal.toNumber();
-            return me2storage.charityBalance.call();
+            return me2.balances.call(charityAddress);
         }).then(function(bal) {
             char_bal_before = bal.toNumber();
-            return me2storage.numBlocksSold.call();
+            return me2.blocksSold.call();
         }).then(function(blcks) {
             // round 1
             return me2.payBlockOwner(block_owner, amount, {from: user_1, gas: 4712388});
         }).then(function(tx) {
-            return me2storage.balances.call(block_owner);
+            return me2.balances.call(block_owner);
         }).then(function(bal) {
             block_owner_bal_after = bal.toNumber();
             // round 2
             return me2.payBlockOwner(zero_address, amount, {from: user_1, gas: 4712388});
         }).then(function(tx) {
-            return me2storage.balances.call(owner);
+            return me2.balances.call(owner);
         }).then(function(bal) {
             contract_owner_bal_after = bal.toNumber();
-            return me2storage.charityBalance.call();
+            return me2.balances.call(charityAddress);
         }).then(function(bal) {
             char_bal_after = bal.toNumber();
 
@@ -419,12 +388,7 @@ contract('MillionEther', function(accounts) {
     });
   });
 
-
-
-
-
-
-  it("should set new block owner 2 (private in future)", function() {
+  it("should set new block owner 2 (setNewBlockOwner, private in production)", function() {
 
     var xy = 51;
     var buer_1 = user_1;
@@ -434,8 +398,6 @@ contract('MillionEther', function(accounts) {
     var blocksSold_init;
     var blocksSold_1st_buy;
     var blocksSold_2nd_buy;
-
-
 
     return MillionEther.deployed().then(function(instance) {
         me2 = instance;
@@ -470,6 +432,14 @@ contract('MillionEther', function(accounts) {
     });
   });
 
+
+
+
+
+
+
+
+
   it("should let buy blocks", function() {
 
     var buer_1 = user_1;
@@ -482,9 +452,7 @@ contract('MillionEther', function(accounts) {
             me2storage = instance;
             return me2storage.blocks.call(1, 1);
         }).then(function(blockInfo) {
-            console.log( blockInfo[0]);
-
-            return me2.buyBlocks(1, 1, 8, 9, {from: buer_1, value: web3.toWei(1, 'ether'), gas: 4712388});
+             return me2.buyBlocks(1, 1, 8, 9, {from: buer_1, value: web3.toWei(1, 'ether'), gas: 4712388});
         }).then(function(tx) {
             logGas(tx, "buyBlocks");
             return me2storage.blocks.call(1, 1);
@@ -505,20 +473,25 @@ contract('MillionEther', function(accounts) {
   it("should let place image", function() {
 
     var buer_1 = user_1;
-    var image_id;
+    var image_id_before;
+    var image_id_after;
+    
 
     return MillionEther.deployed().then(function(instance) {
         me2 = instance;
         return MEStorage.deployed().then(function(instance) {
             me2storage = instance;
+            return me2.numImages.call();
+        }).then(function(id) {
+            image_id_before = id.toNumber();
             return me2.placeImage(1, 1, 8, 9, "sadf","sfa","asdgbb", {from: buer_1, gas: 4712388});
         }).then(function(tx) {
             logGas(tx, "placeImage");
-            return me2storage.numImages.call();
+            return me2.numImages.call();
         }).then(function(id) {
-            image_id = id.toNumber();
+            image_id_after = id.toNumber();
 
-            assert.equal(image_id, 1, "the image id wasn't incremented");
+            assert.equal(image_id_after - image_id_before, 1, "the image id wasn't incremented");
         });
     });
   });
