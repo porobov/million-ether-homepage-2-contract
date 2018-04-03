@@ -9,6 +9,14 @@ contract MEStorage is Owned{
     enum level {NONE, ORACLE, FULL}
     mapping(address => level) public accessLevel;
 
+    // minimal access control
+    string constant ROLE_OWNER = "owner";  // transfer ownership
+    string constant ROLE_STORE = "ui";  // push ETHUSD price many storefronts?? 
+    
+    // maximum access control 
+    // owner + level for every parameter.
+    // string constant ROLE_MODERATOR = "oracle";  // push ETHUSD price 
+
     // Blocks
     struct Block {          //Blocks are 10x10 pixel areas. There are 10 000 blocks.
         address landlord;   //owner

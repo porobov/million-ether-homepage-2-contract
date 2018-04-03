@@ -31,6 +31,41 @@ contract MillionEther is Owned{
     uint public numImages = 0;
     uint16  public blocksSold = 0;
 
+
+    // minimal access needed
+    // owner
+    // oracle
+    // moderator
+
+/*
+    // CAPABILITIES 
+    
+    owner (cold wallet)
+    // set admin? - no! 
+    // transfer ownership
+    // transfer charity funds
+    // collect income
+    // kill
+
+    admin (cold wallet)
+    // set admin
+    // set oracle
+    // set moderator
+    // set server host
+    oracle (contract)
+    // update dollar price
+    moderator (hot wallet)
+    // ban users
+    // update pictures at will
+    server host (hot wallet)
+    // collect fees nothing (ordinary user)
+
+*/
+    // owner - transfer ownership, transfer charity
+    string constant ROLE_ADMIN = "admin";  // super-admin  set roles
+    string constant ROLE_ORACLE = "oracle";  // push ETHUSD price 
+    string constant ROLE_MODERATOR = "moderator";  // ban users
+    
     // Balances
     mapping(address => uint) public balances;   //charity purposes too
     address constant public charityInternalAddress = 0x616c6C20796F75206e656564206973206C6f7665; // "all you need is love" in hex format. Insures nobody has access to it. Used for internal acounting only. 
@@ -130,6 +165,7 @@ contract MillionEther is Owned{
     function getBlockPrice (uint8 _x, uint8 _y, uint8 _iBlocksSold) public view returns (uint, address) {
         if (strg.getBlockOwner(_x, _y) == address(0x0)) { 
             // when buying at initial sale price doubles every 1000 blocks sold
+            // return (oneDollarInWei * crowdsaleUSDPrice(_iBlocksSold), address(0x0));
             return (convertUSDtoWEI(crowdsaleUSDPrice(_iBlocksSold), ethUSDCentsPrice), address(0x0));
         } else {
             // the block is already bought and landlord have set a sell price
