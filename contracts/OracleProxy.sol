@@ -42,11 +42,11 @@ contract ExampleContract is usingOraclize, mortal {
         oneEthInCents = parseInt(result, 2);
         assert(oneEthInCents > 0);
         
-        uint oneDollarInWei;
-        oneDollarInWei = 1 ether * 100 / oneEthInCents;
-        assert(oneDollarInWei > 0);
+        uint oneCentInWei;
+        oneCentInWei = 1 ether / oneEthInCents;
+        assert(oneCentInWei > 0);
         
-        ME.setOneDollarInWei(oneDollarInWei);
+        ME.oracleSetOneCentInWei(oneCentInWei);
         
         delete validIds[myid];
         updatePrice(DELAY);

@@ -51,7 +51,23 @@ contract MEStorage is Owned{
 
     function setSellPrice(uint8 _x, uint8 _y, uint _sellPrince) external access(level.FULL){
         blocks[_x][_y].sellPrice = _sellPrince;
-    } 
+    }
+
+    function setRenter(uint8 _x, uint8 _y, address _newRenter) external access(level.FULL){
+        blocks[_x][_y].renter = _newRenter;
+    }
+
+    function setHourlyRent(uint8 _x, uint8 _y, uint _hourlyRent) external access(level.FULL){
+        blocks[_x][_y].hourlyRent = _hourlyRent;
+    }
+
+    function setRentedTill(uint8 _x, uint8 _y, uint _rentedTill) external access(level.FULL){
+        blocks[_x][_y].rentedTill = _rentedTill;
+    }
+
+    function setBanStatus(address _user, bool _ban) external access(level.FULL){
+        bannedUsers[_user] = _ban;
+    }
 
     function getBlockOwner(uint8 _x, uint8 _y) external view returns (address) {
         return blocks[_x][_y].landlord;
@@ -71,7 +87,11 @@ contract MEStorage is Owned{
 
     function getRentedTill(uint8 _x, uint8 _y) external view returns (uint) {
         return 0;
-    } 
+    }
+
+    function getBanStatus(address _user) external view returns (bool) {
+        return bannedUsers[_user];
+    }
 
     // TODO fallback function
 }

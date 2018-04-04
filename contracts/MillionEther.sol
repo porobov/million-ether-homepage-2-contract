@@ -20,109 +20,113 @@ pragma solidity ^0.4.18;
 import "./OldeMillionEther.sol";
 import "./MEStorage.sol";
 import "./Owned.sol";
+// import "./OracleProxy.sol";
+// import "./OracleProxyMockup.sol";  // for testing only
 
 contract MillionEther is Owned{
-
-    // Seller contract
-    uint public ethUSDCentsPrice;  //1 eth price in cents  // TODO remove, delegate to Oracle Proxy
-    
-    // Counters
-    uint public charityPayed = 0;
-    uint public numImages = 0;
-    uint16  public blocksSold = 0;
-
-
-    // minimal access needed
-    // owner
-    // oracle
-    // moderator
-
-/*
-    // CAPABILITIES 
-    
-    owner (cold wallet)
-    // set admin? - no! 
-    // transfer ownership
-    // transfer charity funds
-    // collect income
-    // kill
-
-    admin (cold wallet)
-    // set admin
-    // set oracle
-    // set moderator
-    // set server host
-    oracle (contract)
-    // update dollar price
-    moderator (hot wallet)
-    // ban users
-    // update pictures at will
-    server host (hot wallet)
-    // collect fees nothing (ordinary user)
-
-*/
-    // owner - transfer ownership, transfer charity
-    string constant ROLE_ADMIN = "admin";  // super-admin  set roles
-    string constant ROLE_ORACLE = "oracle";  // push ETHUSD price 
-    string constant ROLE_MODERATOR = "moderator";  // ban users
-    
-    // Balances
-    mapping(address => uint) public balances;   //charity purposes too
-    address constant public charityInternalAddress = 0x616c6C20796F75206e656564206973206C6f7665; // "all you need is love" in hex format. Insures nobody has access to it. Used for internal acounting only. 
 
     // External contracts
     OldeMillionEther oldMillionEther;
     MEStorage strg;
-    // OracleProxy oracleProxy;
-    // AccessControl accessControl;
 
+    // Admin settings
+    address public oracle;
+    address public moderator;
+    uint public imagePlacementFeeCents;
+    uint public minRentPeriodHours;
+    uint public maxRentPeriodHours;
+
+    // Accounting
+    mapping(address => uint) public balances;
+    address constant public charityVault = 0x616c6C20796F75206e656564206973206C6f7665; // "all you need is love" in hex format. Insures nobody has access to it. Used for internal acounting only. 
+    uint public charityPayed = 0;
+    uint public oneCentInWei;
+    uint public imagePlacementFeeInWei;
+
+    // Counters
+    uint public numImages = 0;
+    uint16  public blocksSold = 0;
+    
     // Events  //TODO indexed
     event NewAreaStatus (uint ID, uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, uint price);
     event NewImage(uint ID, uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, string imageSourceUrl, string adUrl, string adText);
 
+    // Reports
+    event LogCharityTransfer(address charityAddress, uint amount);
+    event LogNewPermissions(address oracle, address moderator, string reason);
+    event LogNewFeesAndRentParams(uint newImagePlacementFeeCents, uint newMinRentPeriodHours, uint newMaxRentPeriodHours, string reason);
 
 // ** INITIALIZE ** //
 
-    function MillionEther (address _strgAddr, address _oldMillionEtherAddr) public {
+    function MillionEther (address _strgAddr, address _oldMillionEtherAddr, address _oracleProxyAddr) public {
         oldMillionEther = OldeMillionEther(_oldMillionEtherAddr);
         strg = MEStorage(_strgAddr);
-        ethUSDCentsPrice = 100000;  // $1000
-    }
+        oracle = _oracleProxyAddr;
+        moderator = msg.sender;
 
+        imagePlacementFeeCents = 0;
+        minRentPeriodHours = 0;
+        maxRentPeriodHours = 4320;  // 3 mounths in hours
+    }
 
 // ** FUNCTION MODIFIERS (PERMISSIONS) ** //
 
-    modifier onlyForSale (uint8 _x, uint8 _y) {
-        require(strg.getBlockOwner(_x, _y) == address(0x0));  // TODO || blocks[_x][_y].sellPrice != 0));
+    modifier onlyForSale(uint8 _x, uint8 _y) {
+        require(strg.getBlockOwner(_x, _y) == address(0x0) || strg.getSellPrice(_x, _y) != 0);  // address(0x0) - no landlord yet, 0 - not for sale
         _;
     }
 
-    modifier onlyLegalCoordinates (uint8 _fromX, uint8 _fromY, uint8 _toX, uint8 _toY) { // , bool checkAuth) {
+    modifier onlyForRent(uint8 _x, uint8 _y) {
+        require(strg.getHourlyRent(_x, _y) != 0 && strg.getRentedTill(x, y) < now);  // hourlyRent = 0 - not for rent
+        _;
+    }
+
+    modifier onlyLegalRentPeriodHours(uint _rentPeriodHours) {
+        require(minRentPeriodHours < _rentPeriodHours && _rentPeriodHours < maxRentPeriodHours)
+        _;
+    }
+
+    modifier onlyLegalCoordinates(uint8 _fromX, uint8 _fromY, uint8 _toX, uint8 _toY) { // , bool checkAuth) {
         require ((_fromX >= 1) && (_fromY >=1)  && (_toX <= 100) && (_toY <= 100));
         require ((_fromX <= _toX) && (_fromY <= _toY));  //TODO > 100 area check
         _;
     }
 
-    modifier onlyByLandlord (uint8 _x, uint8 _y) {
-        if (msg.sender != owner) {  // TODO remove??
-            require(strg.getBlockOwner(_x, _y) == msg.sender);
-        }
+    modifier onlyByLandlord(uint8 _x, uint8 _y) {
+        require(strg.getBlockOwner(_x, _y) == msg.sender);
         _;
     }
+
+    modifier onlyOracle() {
+        require(msg.sender == oracle);
+        _;
+    }
+
+    modifier onlyModerator() {
+        require(msg.sender == moderator);
+        _;
+    }
+
+    modifier noBannedUsers() {
+        require(strg.getBanStatus[msg.sender] == false);
+    }
+
 
 
  // ** PAYMENT PROCESSING ** //
 
-    function crowdsaleUSDPrice(uint _blocksSold) public pure returns (uint) {  
+    // ETHUSD price oracle
+    function oracleSetOneCentInWei(uint newOneCentInWei) external onlyOracle returns (bool) {
+        oneCentInWei = newOneCentInWei;
+        imagePlacementFeeInWei = imagePlacementFeeCents * newOneCentInWei;
+    }
+
+    function crowdsalePriceInUSD(uint _blocksSold) public pure returns (uint) {  
         return 1 * (2 ** (_blocksSold / 1000));  // price doubles every 1000 blocks sold
     }
 
     function charityPercent(uint _blocksSold) public pure returns (uint) {
         return 10 * (_blocksSold / 1000);
-    }
-
-    function convertUSDtoWEI(uint _usd, uint _ethUSDCentsPrice) public pure  returns (uint) { // TODO private
-        return 1 ether * 100 * _usd / _ethUSDCentsPrice;
     }
 
     function depositTo(address _recipient, uint _amount) public returns (bool) { // TODO private
@@ -142,31 +146,39 @@ contract MillionEther is Owned{
     // reward admin and charity
     function payOwnerAndCharity (uint _amount) public {  // TODO private
         uint goesToCharity = _amount * charityPercent(blocksSold) / 100;
-        depositTo(charityInternalAddress, goesToCharity);
+        depositTo(charityVault, goesToCharity);
         depositTo(owner, _amount - goesToCharity);
     }
 
-    function payBlockOwner(address _blockOwner, uint _blockPrice) public returns (uint8){ //TODO private
-        uint8 iBlocksSold = 0;
-        // Buy at initial sale
-        if (_blockOwner == address(0x0)) {
-            payOwnerAndCharity(_blockPrice);
-            iBlocksSold = 1;
-        // Buy from current landlord and pay him or her the _blockPrice
-        } else {
-            depositTo(_blockOwner, _blockPrice);
-        }
-        return iBlocksSold;
+    // transfer charity to an address (internally)
+    function transferCharity(address charityAddress, uint amount) external only_owner {
+        deductFrom(charityVault, amount);
+        depositTo(charityAddress, amount);
+        charityPayedOut++;
+        LogCharityTransfer(charityAddress, amount);
     }
+
+    function withdrawPayments() public { //zeppelin // TODO 
+        address payee = msg.sender;
+        uint256 payment = payments[payee];
+
+        require(payment != 0);
+        require(this.balance >= payment);
+
+        totalPayments = totalPayments.sub(payment);
+        payments[payee] = 0;
+
+        assert(payee.send(payment));
+    }
+
+
 
  // ** BUY AND SELL BLOCKS ** //
 
-
-    function getBlockPrice (uint8 _x, uint8 _y, uint8 _iBlocksSold) public view returns (uint, address) {
+    function getBlockPriceAndOwner (uint8 _x, uint8 _y, uint8 _iBlocksSold) public view returns (uint, address) {
         if (strg.getBlockOwner(_x, _y) == address(0x0)) { 
             // when buying at initial sale price doubles every 1000 blocks sold
-            // return (oneDollarInWei * crowdsaleUSDPrice(_iBlocksSold), address(0x0));
-            return (convertUSDtoWEI(crowdsaleUSDPrice(_iBlocksSold), ethUSDCentsPrice), address(0x0));
+            return (oneCentInWei * 100 * crowdsalePriceInUSD(_iBlocksSold), address(0x0));
         } else {
             // the block is already bought and landlord have set a sell price
             return (strg.getSellPrice(_x, _y), strg.getBlockOwner(_x, _y));
@@ -175,12 +187,24 @@ contract MillionEther is Owned{
 
     function setNewBlockOwner(uint8 _x, uint8 _y, address _newOwner) public returns (bool) {  //TODO make private
         strg.setBlockOwner(_x, _y, _newOwner);
-        //blocks[_x][_y].landlord = _newOwner;
         return true;
     }
 
     function incrementBlocksSold(uint16 _iBlocksSold) public { //TODO make private
         blocksSold += _iBlocksSold;
+    }
+
+    function payBlockOwner(address _blockOwner, uint _blockPrice) public returns (uint8){ //TODO private
+        uint8 iBlocksSold = 0;
+        // Buy at initial sale
+        if (_blockOwner == address(0x0)) {
+            payOwnerAndCharity(_blockPrice);
+            iBlocksSold = 1;
+        // Buy from current landlord and pay them _blockPrice
+        } else {
+            depositTo(_blockOwner, _blockPrice);
+        }
+        return iBlocksSold;
     }
 
     function buyBlock (uint8 x, uint8 y, uint8 _iBlocksSold)
@@ -190,12 +214,11 @@ contract MillionEther is Owned{
     {
         uint blockPrice;
         address blockOwner;
-        (blockPrice, blockOwner) = getBlockPrice(x, y, _iBlocksSold);
+        (blockPrice, blockOwner) = getBlockPriceAndOwner(x, y, _iBlocksSold);
         deductFrom(msg.sender, blockPrice);
         setNewBlockOwner(x, y, msg.sender);
         return payBlockOwner(blockOwner, blockPrice);
     }
-
 
     function buyBlocks (uint8 fromX, uint8 fromY, uint8 toX, uint8 toY) 
         external
@@ -238,25 +261,95 @@ contract MillionEther is Owned{
         return true;
     }
 
+
+
+
 // ** RENT AND RENT OUT BLOCKS ** //
-//
-//
-//
+    
+    function rentBlock (uint8 x, uint8 y, uint rentPeriodHours)
+        private
+        onlyLegalRentPeriodHours(rentPeriodHours)
+        onlyForRent (x, y)
+        returns (bool)
+    {
+        uint horlyRent = strg.getHourlyRent(x, y);
+        uint rentPrice = horlyRent * rentPeriodHours;
+        deductFrom(msg.sender, rentPrice);
+
+        address blockOwner = strg.getBlockOwner(x, y);
+        depositTo(blockOwner, rentPrice);
+
+        uint rentedTill = rentPeriodHours * 3600 + now;  // convert to seconds
+        strg.setRentedTill(x, y, rentedTill);
+        strg.setRenter(x, y, msg.sender);
+        return true;
+    }
+
+    function rentBlocks (uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, uint rentPeriodHours) 
+        external
+        payable
+        onlyLegalCoordinates (fromX, fromY, toX, toY)
+        returns (bool) 
+    {   
+        depositTo(msg.sender, msg.value);
+        // perform rentBlock for coordinates [fromX, fromY, toX, toY] and withdraw funds
+        for (uint8 ix=fromX; ix<=toX; ix++) {
+            for (uint8 iy=fromY; iy<=toY; iy++) {
+                rentBlock(ix, iy, rentPeriodHours);
+            }
+        }
+        return true;
+    }
+
+    //Mark block for rent (set a hourly rent price)
+    function rentOutBlock (uint8 x, uint8 y, uint hourlyRent) 
+        private
+        onlyByLandlord (x, y) 
+    {   
+        strg.setHourlyRent(x, y, hourlyRent);
+    }
+
+    // rent out an area of blocks at coordinates [fromX, fromY, toX, toY]
+    // hourlyRentForEachBlockInWei = 0 - not for rent
+    function rentOutBlocks (uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, uint hourlyRentForEachBlockInWei) 
+        external 
+        onlyLegalCoordinates (fromX, fromY, toX, toY)
+        returns (bool)
+    {
+        for (uint8 ix=fromX; ix<=toX; ix++) {
+            for (uint8 iy=fromY; iy<=toY; iy++) {
+                rentOutBlock (ix, iy, hourlyRentForEachBlockInWei);
+            }
+        }
+        return true;
+    }
 
 
 
-// ** ASSIGNING IMAGES ** //
+// ** PLACE IMAGES ** //
+
+    function chargeForImagePlacement() private {
+        depositTo(msg.sender, msg.value);
+        deductFrom(msg.sender, imagePlacementFeeInWei); 
+        depositTo(owner, imagePlacementFeeInWei);
+    }
 
     // place new ad to user owned area
     function placeImage (uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, string imageSourceUrl, string adUrl, string adText) 
-        public 
-        // TODO no banned users
+        external
+        payable
+        noBannedUsers
         onlyLegalCoordinates(fromX, fromY, toX, toY)
         returns (uint) 
     {   
+        chargeForImagePlacement();
         for (uint8 ix=fromX; ix<=toX; ix++) {
             for (uint8 iy=fromY; iy<=toY; iy++) {
-                require(strg.getBlockOwner(ix, iy) == msg.sender); // || msg.sender == owner);  //TODO renter too 
+                require(
+                    msg.sender == moderator ||
+                    msg.sender == strg.getBlockOwner(ix, iy) ||
+                    msg.sender == strg.getRenter(x, y,)
+                );
             }
         }
         numImages++;
@@ -264,23 +357,12 @@ contract MillionEther is Owned{
         return numImages;
     }
 
-// ** ETHUSD PRICE ORACLE
-    // function sync_eth_usd_price() {
-    //     ethUSDCentsPrice = oracle.getEthUsdCentsPrice();
-    // }
 
-// ** CHARITY TRANSFER ** //
-    // function transfer_charity(address some_charity, uint amount) only_owner {
-    //     deductFrom(charityAddress, amount)
-    //     depositTo(some_charity, amount)
-    //     charityPayed++
-    //     Event charity transfered(to addr, amount, now)
-    // }
 
-    // function getTotalCharity() public returns (uint) {return balances['0x0'] + charityPayed}
 
-// ** INFO ** //
-
+// ** INFO GETTERS ** //
+    
+    // TODO remove
     function getBlockInfo(uint8 x, uint8 y) 
         public view returns (address, uint, address, uint, uint) 
     {
@@ -292,42 +374,52 @@ contract MillionEther is Owned{
         return (landlord, sellPrice, renter, hourlyRent, rentedTill);
     }
 
-// ** IMPORT OLD CONTRACT DATA ** //
+    function getCharityTurnOver() external view returns (uint) {
+        return balances[charityVault] + charityPayed;
+    }
 
-    function import_old_me(uint8 _x, uint8 _y) public returns (bool) {
-        require(strg.getBlockOwner(_x, _y) == address(0x0));
+// ** SETTINGS ** //
+
+    function adminPermissions(address newOracle, address newModerator, string reason) external onlyOwner {
+        if (newOracle != address(0x0)) { oracle = newOracle };
+        if (newModerator != address(0x0)) { moderator = newModerator };
+        LogNewPermissions(newOracle, newModerator, reason);
+    }
+
+    function adminFeesAndRentParams(
+        uint newImagePlacementFeeCents, 
+        uint newMinRentPeriodHours, 
+        uint newMaxRentPeriodHours,
+        string reason) 
+    external 
+    onlyOwner
+    {
+        imagePlacementFeeCents = newImagePlacementFeeCents;
+        minRentPeriodHours = newMinRentPeriodHours;
+        maxRentPeriodHours = newMaxRentPeriodHours;
+        LogNewFeesAndRentParams(newImagePlacementFeeCents, newMinRentPeriodHours, newMaxRentPeriodHours, reason);
+    }
+    
+    // import old contract blocks
+    function adminImportOldMEBlock(uint8 x, uint8 y) public onlyOwner returns (bool) {
+        require(strg.getBlockOwner(x, y) == address(0x0));
         address landlord;
         uint imageID;
         uint sellPrice;
-        (landlord, imageID, sellPrice) = oldMillionEther.getBlockInfo(_x, _y);
+        (landlord, imageID, sellPrice) = oldMillionEther.getBlockInfo(x, y);
         require(landlord != address(0x0));
-        setNewBlockOwner(_x, _y, landlord);
+        setNewBlockOwner(x, y, landlord);
         incrementBlocksSold(1);  //increment blocksSold by 1
         return true;
     }
 
+    function moderatorBanUser(address user, bool ban) external onlyModerator returns (bool) {
+        strg.setBanStatus(user, ban);
+        return true;
+        }
+    }
 
-  //   function withdrawPayments() public { //zeppelin
-  //       address payee = msg.sender;
-  //       uint256 payment = payments[payee];
+// TODO fallback
+// TODO kill
 
-  //       require(payment != 0);
-  //       require(this.balance >= payment);
-
-  //       totalPayments = totalPayments.sub(payment);
-  //       payments[payee] = 0;
-
-  //       assert(payee.send(payment));
-  // }
-
-  // Admin
-      // function setOracle(address _newOracleAddress) onlyOwner returns (bool) {
-    //     oracleAddres = _newOracleAddress;
-    //     return true;
-    // }
-
-    // function setInterface() onlyOwner returns (bool) {
-    //     millionEtherAddress = _millionEtherAddress;
-    //     return true;
-    // }
 }
