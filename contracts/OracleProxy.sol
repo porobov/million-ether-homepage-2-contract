@@ -18,7 +18,7 @@ contract ExampleContract is usingOraclize, mortal {
     
     // Oracalize querry-response events
     event LogResponseReceived(bytes32 id, string price);
-    event LogNewOraclizeQuery(string description);
+    event LogOraclizeQuery(string description);
     
     // events to fire when admin changes settings
     event LogNewME(address newMEAddress, string reason);
@@ -54,9 +54,9 @@ contract ExampleContract is usingOraclize, mortal {
 
     function updatePrice(uint update_delay) public payable onlyowner {
         if (oraclize_getPrice("URL") > address(this).balance) {
-            emit LogNewOraclizeQuery("Oraclize query was NOT sent, please add some ETH to cover for the query fee");
+            emit LogOraclizeQuery("Oraclize query was NOT sent, please add some ETH to cover for the query fee");
         } else {
-            emit LogNewOraclizeQuery("Oraclize query was sent, standing by for the answer...");
+            emit LogOraclizeQuery("Oraclize query was sent, standing by for the answer...");
             bytes32 queryId = oraclize_query(update_delay, "URL", REQUEST_URL);
             validIds[queryId] = true;
         }

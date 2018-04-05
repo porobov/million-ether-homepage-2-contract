@@ -1,73 +1,73 @@
 pragma solidity ^0.4.18;
 
-import "./Owned.sol";
+import "./Ownable.sol";
+import "./HasNoEther.sol";
+import "./Destructible.sol";
 
-contract MEStorage is Owned{
+contract MEStorage is Ownable, HasNoEther, Destructible {  // production but is immortal
 
     // Access
     address millionEtherAddress;
-    enum level {NONE, ORACLE, FULL}
-    mapping(address => level) public accessLevel;
-
-    // minimal access control
-    string constant ROLE_OWNER = "owner";  // transfer ownership
-    string constant ROLE_STORE = "ui";  // push ETHUSD price many storefronts?? 
-    
-    // maximum access control 
-    // owner + level for every parameter.
-    // string constant ROLE_MODERATOR = "oracle";  // push ETHUSD price 
 
     // Blocks
     struct Block {          //Blocks are 10x10 pixel areas. There are 10 000 blocks.
-        address landlord;   //owner
-        address renter;     //renter address
-        uint sellPrice;     //price if willing to sell
-        uint hourlyRent;    //rent price per day
-        uint rentedTill;    //rented at day
+        address landlord;   //block owner
+        uint sellPrice;     //price if willing to sell, 0 if not
+        address renter;     //block renter
+        uint hourlyRent;    //rent price per hour
+        uint rentedTill;    //after this timestamp rent is over
     }
     Block[101][101] public blocks; 
 
     // Moderation
-    mapping(address => bool) public bannedUsers;  // Allowed only to buy/sell, rent blocks. Not allowed to place images. 
+    mapping(address => bool) public bannedUsers;  // these users are not allowed to place images
 
-    modifier access(level _level) {
-        require(accessLevel[msg.sender] >= _level);
+
+    // PERMISSIONS
+
+    modifier onlyMillionEther() {
+        require(msg.sender == millionEtherAddress);
         _;
     }
 
-    function setPermissions(address _newClient, uint8 _permissionLevel) external onlyOwner {
-        accessLevel[_newClient] = level(_permissionLevel);
+    function adminSetMEAddress(address millionEtherAddr) external onlyOwner {
+        millionEtherAddress = millionEtherAddr;
     }
 
-    // Blocks
+    // SETTERS
 
-    // function getBlockID (uint8 _x, uint8 _y) public pure returns (uint16) {
-    //     return (uint16(_y) - 1) * 100 + uint16(_x);
-    // }
-
-    function setBlockOwner(uint8 _x, uint8 _y, address _newOwner) external access(level.FULL){
+    function setBlockOwner(uint8 _x, uint8 _y, address _newOwner) external onlyMillionEther returns (bool) {
         blocks[_x][_y].landlord = _newOwner;
+        return true;
     } 
 
-    function setSellPrice(uint8 _x, uint8 _y, uint _sellPrince) external access(level.FULL){
+    function setSellPrice(uint8 _x, uint8 _y, uint _sellPrince) external onlyMillionEther returns (bool) {
         blocks[_x][_y].sellPrice = _sellPrince;
+        return true;
     }
 
-    function setRenter(uint8 _x, uint8 _y, address _newRenter) external access(level.FULL){
+    function setRenter(uint8 _x, uint8 _y, address _newRenter) external onlyMillionEther returns (bool) {
         blocks[_x][_y].renter = _newRenter;
+        return true;
     }
 
-    function setHourlyRent(uint8 _x, uint8 _y, uint _hourlyRent) external access(level.FULL){
+    function setHourlyRent(uint8 _x, uint8 _y, uint _hourlyRent) external onlyMillionEther returns (bool) {
         blocks[_x][_y].hourlyRent = _hourlyRent;
+        return true;
     }
 
-    function setRentedTill(uint8 _x, uint8 _y, uint _rentedTill) external access(level.FULL){
+    function setRentedTill(uint8 _x, uint8 _y, uint _rentedTill) external onlyMillionEther returns (bool) {
         blocks[_x][_y].rentedTill = _rentedTill;
+        return true;
     }
 
-    function setBanStatus(address _user, bool _ban) external access(level.FULL){
+    function setBanStatus(address _user, bool _ban) external onlyMillionEther returns (bool) {
         bannedUsers[_user] = _ban;
+        return true;
     }
+
+
+    // GETTERS
 
     function getBlockOwner(uint8 _x, uint8 _y) external view returns (address) {
         return blocks[_x][_y].landlord;
@@ -78,20 +78,22 @@ contract MEStorage is Owned{
     } 
 
     function getRenter(uint8 _x, uint8 _y) external view returns (address) {
-        return address(0x0);
+        return blocks[_x][_y].renter;
     } 
 
     function getHourlyRent(uint8 _x, uint8 _y) external view returns (uint) {
-        return 0;
+        return blocks[_x][_y].hourlyRent;
     } 
 
     function getRentedTill(uint8 _x, uint8 _y) external view returns (uint) {
-        return 0;
+        return blocks[_x][_y].rentedTill;
     }
 
     function getBanStatus(address _user) external view returns (bool) {
         return bannedUsers[_user];
     }
 
-    // TODO fallback function
+    // function getBlockID (uint8 _x, uint8 _y) public pure returns (uint16) {
+    //     return (uint16(_y) - 1) * 100 + uint16(_x);
+    // }
 }
