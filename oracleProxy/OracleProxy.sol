@@ -1,11 +1,11 @@
 pragma solidity ^0.4.11;
 
-import "./owned.sol";
-import "./mortal.sol";
-import "github.com/oraclize/ethereum-api/oraclizeAPI.sol";
+import "./Ownable.sol";
+import "./Destructible.sol";
+// import "github.com/oraclize/ethereum-api/oraclizeAPI.sol";
 import "./MEMockup.sol";
 
-contract ExampleContract is usingOraclize, mortal {
+contract ExampleContract is usingOraclize, Ownable, Destructible {
     
     // global defaults
     MillionEther public ME;
@@ -34,7 +34,7 @@ contract ExampleContract is usingOraclize, mortal {
     function __callback(bytes32 myid, string result) public {
         require(validIds[myid]);
         require(msg.sender == oraclize_cbAddress());
-        emit LogResponseReceived(myid, result);
+        LogResponseReceived(myid, result);
         bytes memory tempEmptyStringTest = bytes(result);
         require(tempEmptyStringTest.length > 0);
         
@@ -54,9 +54,9 @@ contract ExampleContract is usingOraclize, mortal {
 
     function updatePrice(uint update_delay) public payable onlyowner {
         if (oraclize_getPrice("URL") > address(this).balance) {
-            emit LogOraclizeQuery("Oraclize query was NOT sent, please add some ETH to cover for the query fee");
+            LogOraclizeQuery("Oraclize query was NOT sent, please add some ETH to cover for the query fee");
         } else {
-            emit LogOraclizeQuery("Oraclize query was sent, standing by for the answer...");
+            LogOraclizeQuery("Oraclize query was sent, standing by for the answer...");
             bytes32 queryId = oraclize_query(update_delay, "URL", REQUEST_URL);
             validIds[queryId] = true;
         }
@@ -65,13 +65,13 @@ contract ExampleContract is usingOraclize, mortal {
     // Set new defaults
     function setME(address meAddress, string reason) external onlyowner returns(bool) {
         ME = MillionEther(meAddress);
-        emit LogNewME(meAddress, reason);
+        LogNewME(meAddress, reason);
         return true;
     }
     
     function setUpdatePeriod(uint newDelay, string reason) external onlyowner returns(bool) {
         DELAY = newDelay;
-        emit LogNewDelay(newDelay, reason);
+        LogNewDelay(newDelay, reason);
         return true;
     }
     
@@ -83,7 +83,7 @@ contract ExampleContract is usingOraclize, mortal {
     
     function setrequestURL(string newRequestURL, string reason) external onlyowner returns(bool) {
         REQUEST_URL = newRequestURL;
-        emit LogNewRequestURL(newRequestURL, reason);
+        LogNewRequestURL(newRequestURL, reason);
         return true;
     }
 }

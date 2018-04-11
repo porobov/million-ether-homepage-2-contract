@@ -2,7 +2,7 @@ pragma solidity ^0.4.18;
 
 import "./Ownable.sol";
 import "./HasNoEther.sol";
-import "./Destructible.sol";
+import "./Destructible.sol"; // production is immortal
 
 contract MEStorage is Ownable, HasNoEther, Destructible {  // production but is immortal
 
@@ -10,12 +10,12 @@ contract MEStorage is Ownable, HasNoEther, Destructible {  // production but is 
     address millionEtherAddress;
 
     // Blocks
-    struct Block {          //Blocks are 10x10 pixel areas. There are 10 000 blocks.
-        address landlord;   //block owner
-        uint sellPrice;     //price if willing to sell, 0 if not
-        address renter;     //block renter
-        uint hourlyRent;    //rent price per hour
-        uint rentedTill;    //after this timestamp rent is over
+    struct Block {           //Blocks are 10x10 pixel areas. There are 10 000 blocks.
+        address landlord;    //block owner
+        uint sellPrice;      //price if willing to sell, 0 if not
+        address renter;      //block renter
+        uint rentSecondPrice;//rent price per second
+        uint rentedTill;     //after this timestamp rent is over
     }
     Block[101][101] public blocks; 
 
@@ -51,8 +51,8 @@ contract MEStorage is Ownable, HasNoEther, Destructible {  // production but is 
         return true;
     }
 
-    function setHourlyRent(uint8 _x, uint8 _y, uint _hourlyRent) external onlyMillionEther returns (bool) {
-        blocks[_x][_y].hourlyRent = _hourlyRent;
+    function setHourlyRent(uint8 _x, uint8 _y, uint _rentPrice) external onlyMillionEther returns (bool) {
+        blocks[_x][_y].rentPrice = _rentPrice;
         return true;
     }
 
@@ -82,7 +82,7 @@ contract MEStorage is Ownable, HasNoEther, Destructible {  // production but is 
     } 
 
     function getHourlyRent(uint8 _x, uint8 _y) external view returns (uint) {
-        return blocks[_x][_y].hourlyRent;
+        return blocks[_x][_y].rentPrice;
     } 
 
     function getRentedTill(uint8 _x, uint8 _y) external view returns (uint) {
