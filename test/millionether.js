@@ -1,4 +1,4 @@
-var MEStorage = artifacts.require("./MEStorage.sol");
+var MEStorage = artifacts.require("./OwnershipLedger.sol");
 var OldeMillionEther = artifacts.require("./OldeMillionEther.sol");
 var MillionEther = artifacts.require("./MillionEther.sol");
 

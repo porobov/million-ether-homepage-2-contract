@@ -1,14 +1,14 @@
-pragma solidity ^0.4.11;
+pragma solidity ^0.4.18;
 
-import "./Ownable.sol";
-import "./Destructible.sol";
+import "../installed_contracts/Ownable.sol"; 
+import "../installed_contracts/Destructible.sol";
 import "./MillionEther.sol";
 
-contract oracleProxyMockUp is Ownable, Destructible {
+contract OracleProxy is Ownable, Destructible {
     
     MillionEther public ME;
     
-    function ExampleContract(address meAddress) public payable {
+    function setME(address meAddress) public payable {
         ME = MillionEther(meAddress);
     }
 

@@ -1,10 +1,12 @@
-var MillionEther = artifacts.require("./MillionEther.sol");
-var MEStorage = artifacts.require("./MEStorage.sol");
+var OracleProxy = artifacts.require("./OracleProxy.sol");
+var OwnershipLedger = artifacts.require("./OwnershipLedger.sol");
+var ModerationLedger = artifacts.require("./ModerationLedger.sol");
 var OldeMillionEther = artifacts.require("./OldeMillionEther.sol");
+var MillionEther = artifacts.require("./MillionEther.sol");
 
 module.exports = function(deployer) {
-  deployer.deploy(MillionEther, MEStorage.address, OldeMillionEther.address).then(() => {
-    MEStorage.deployed().then(inst => {
+  deployer.deploy(MillionEther, OwnershipLedger.address, OldeMillionEther.address, OracleProxy.address, ModerationLedger.address).then(() => {
+    OwnershipLedger.deployed().then(inst => {
         return inst.setPermissions(MillionEther.address, 2);
     });
   });

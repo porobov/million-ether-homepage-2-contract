@@ -18,24 +18,23 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 pragma solidity ^0.4.18;
 
 import "../installed_contracts/Ownable.sol"; 
-import "../installed_contracts/Destructible.sol";
+import "../installed_contracts/HasNoEther.sol";
+import "../installed_contracts/Destructible.sol"; // production is immortal
 import "./OldeMillionEther.sol";
-import "./OwnershipLedger.sol";
-import "./ModerationLedger.sol";
-import "./OracleProxy.sol";
+import "./MEStorage.sol";
 
 contract MillionEther is Ownable, Destructible {   // production is immortal
 
     // External contracts
     OldeMillionEther oldMillionEther;
-    OwnershipLedger  strg; // owners
-    ModerationLedger bans;  // bans
-    //OracleProxy usd;
+    MEStorage        strg;
 
     // Admin settings
     address public oracle;
     address public moderator;
     uint    public imagePlacementFeeCents;
+    uint    public minRentPeriodHours;
+    uint    public maxRentPeriodHours;
 
     // Accounting
     mapping(address => uint) public balances;
@@ -46,35 +45,48 @@ contract MillionEther is Ownable, Destructible {   // production is immortal
     // Counters
     uint16  public blocksSold = 0;
     uint public numOwnershipStatuses = 0;
+    uint public numRentStatuses = 0;
     uint public numImages = 0;
     
     // Events
     event LogOwnership (uint ID, uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, address indexed newLandlord, uint newPrice);  // price > 0 - for sale. price = 0 - sold
+    event LogRent      (uint ID, uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, uint horlyRentWei, uint rentedTill, address indexed rentedBy);  // price > 0 - for rent. price = 0 - not for rent
     event LogImage     (uint ID, uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, string imageSourceUrl, string adUrl, string adText, address indexed publisher);
 
     // Reports
     event LogNewOneCentInWei(uint oneCentInWei);
     event LogCharityTransfer(address charityAddress, uint amount, string reason);
     event LogNewPermissions(address oracle, address moderator, string reason);
-    event LogNewFees(uint newImagePlacementFeeCents, string reason);
+    event LogNewFeesAndRentParams(uint newImagePlacementFeeCents, uint newMinRentPeriodHours, uint newMaxRentPeriodHours, string reason);
     event LogUserBan(address user, bool ban, string reason);
 
 // ** INITIALIZE ** //
 
-    function MillionEther (address _strgAddr, address _oldMillionEtherAddr, address _oracleProxyAddr, address _bansAddr) public {
+    function MillionEther (address _strgAddr, address _oldMillionEtherAddr, address _oracleProxyAddr) public {
         oldMillionEther = OldeMillionEther(_oldMillionEtherAddr);
-        strg = OwnershipLedger(_strgAddr);
-        bans = ModerationLedger(_bansAddr);
+        strg = MEStorage(_strgAddr);
         oracle = _oracleProxyAddr;
         moderator = msg.sender;
 
         imagePlacementFeeCents = 0;
+        minRentPeriodHours = 0;
+        maxRentPeriodHours = 4320;  // 3 mounths in hours
     }
 
 // ** FUNCTION MODIFIERS (PERMISSIONS) ** //
 
     modifier onlyForSale(uint8 _x, uint8 _y) {
         require(strg.getBlockOwner(_x, _y) == address(0x0) || strg.getSellPrice(_x, _y) != 0);  // address(0x0) - no landlord yet, 0 - not for sale
+        _;
+    }
+
+    modifier onlyForRent(uint8 _x, uint8 _y) {
+        require(strg.getHourlyRent(_x, _y) != 0 && strg.getRentedTill(_x, _y) < now);  // hourlyRent = 0 - not for rent
+        _;
+    }
+
+    modifier onlyLegalRentPeriodHours(uint _rentPeriodHours) {
+        require(minRentPeriodHours < _rentPeriodHours && _rentPeriodHours < maxRentPeriodHours);
         _;
     }
 
@@ -102,7 +114,7 @@ contract MillionEther is Ownable, Destructible {   // production is immortal
     }
 
     modifier noBannedUsers() {
-        require(bans.getBanStatus(msg.sender) == false);
+        require(strg.getBanStatus(msg.sender) == false);
         _;
     }
 
@@ -156,13 +168,13 @@ contract MillionEther is Ownable, Destructible {   // production is immortal
 
  // ** BUY AND SELL BLOCKS ** //
 
-    function getBlockPriceAndOwner(uint8 _x, uint8 _y, uint16 _iBlocksSold) public view returns (uint, address) {
+    function getBlockPriceAndOwner(uint8 _x, uint8 _y, uint8 _iBlocksSold) public view returns (uint, address) {
         if (strg.getBlockOwner(_x, _y) == address(0x0)) { 
             // when buying at initial sale price doubles every 1000 blocks sold
             return (oneCentInWei * 100 * crowdsalePriceInUSD(_iBlocksSold), address(0x0));
         } else {
             // the block is already bought and landlord have set a sell price
-            return (oneCentInWei * strg.getSellPrice(_x, _y), strg.getBlockOwner(_x, _y));
+            return (strg.getSellPrice(_x, _y), strg.getBlockOwner(_x, _y));
         }
     }
 
@@ -172,7 +184,7 @@ contract MillionEther is Ownable, Destructible {   // production is immortal
     }
 
     function incrementBlocksSold(uint16 _iBlocksSold) public { //production make private
-        blocksSold += _iBlocksSold;  // TODO safemath
+        blocksSold += _iBlocksSold;
     }
 
     function payBlockOwner(address _blockOwner, uint _blockPrice) public returns (uint8){ //production private
@@ -188,7 +200,7 @@ contract MillionEther is Ownable, Destructible {   // production is immortal
         return iBlocksSold;
     }
 
-    function buyBlock (uint8 x, uint8 y, uint16 _iBlocksSold)
+    function buyBlock (uint8 x, uint8 y, uint8 _iBlocksSold)
         private
         onlyForSale (x, y)
         returns (uint8)
@@ -209,7 +221,7 @@ contract MillionEther is Ownable, Destructible {   // production is immortal
         requireLegalCoordinates(fromX, fromY, toX, toY);
         depositTo(msg.sender, msg.value);
         // perform buyBlock for coordinates [fromX, fromY, toX, toY] and withdraw funds
-        uint16 iBlocksSold = 0;
+        uint8 iBlocksSold = 0;
         for (uint8 ix=fromX; ix<=toX; ix++) {
             for (uint8 iy=fromY; iy<=toY; iy++) {
                 iBlocksSold += buyBlock(ix, iy, iBlocksSold);  // TODO assert everywhere iBlocksSold <=255;
@@ -222,27 +234,95 @@ contract MillionEther is Ownable, Destructible {   // production is immortal
     }
 
     //Mark block for sale (set a sell price)
-    function sellBlock (uint8 x, uint8 y, uint sellPriceCents) 
+    function sellBlock (uint8 x, uint8 y, uint sellPrice) 
         private
         onlyByLandlord (x, y) 
     {   
-        strg.setSellPrice(x, y, sellPriceCents);
+        strg.setSellPrice(x, y, sellPrice);
     }
 
     // sell an area of blocks at coordinates [fromX, fromY, toX, toY]
-    // priceForEachBlockCents = 0 - not for sale
-    function sellArea (uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, uint priceForEachBlockCents) 
+    // priceForEachBlockInWei = 0 - not for sale
+    function sellArea (uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, uint priceForEachBlockInWei) 
         external 
         returns (bool) 
     {
         requireLegalCoordinates(fromX, fromY, toX, toY);
         for (uint8 ix=fromX; ix<=toX; ix++) {
             for (uint8 iy=fromY; iy<=toY; iy++) {
-                sellBlock (ix, iy, priceForEachBlockCents);
+                sellBlock (ix, iy, priceForEachBlockInWei);
             }
         }
         numOwnershipStatuses++;
-        LogOwnership(numOwnershipStatuses, fromX, fromY, toX, toY, address(0x0), priceForEachBlockCents);
+        LogOwnership(numOwnershipStatuses, fromX, fromY, toX, toY, address(0x0), priceForEachBlockInWei);
+        return true;
+    }
+
+
+
+
+// ** RENT AND RENT OUT BLOCKS ** //
+    
+    function rentBlock (uint8 x, uint8 y, uint rentPeriodHours, uint rentedTill)
+        private
+        onlyForRent(x, y)
+        //returns (bool)
+    {
+        uint horlyRent = strg.getHourlyRent(x, y);
+        uint rentPrice = horlyRent * rentPeriodHours;
+        deductFrom(msg.sender, rentPrice);
+
+        address blockOwner = strg.getBlockOwner(x, y);
+        depositTo(blockOwner, rentPrice);
+
+        strg.setRentedTill(x, y, rentedTill);
+        strg.setRenter(x, y, msg.sender);
+        // return true;
+    }
+
+    function rentArea(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, uint rentPeriodHours) 
+        external
+        payable
+        onlyLegalRentPeriodHours(rentPeriodHours)
+        returns (bool) 
+    {   
+        requireLegalCoordinates(fromX, fromY, toX, toY);
+        depositTo(msg.sender, msg.value);
+        uint rentedTill = rentPeriodHours * 3600 + now;  // 3600 - seconds in hour
+        // perform rentBlock for coordinates [fromX, fromY, toX, toY] and withdraw funds
+        for (uint8 ix=fromX; ix<=toX; ix++) {
+            for (uint8 iy=fromY; iy<=toY; iy++) {
+                rentBlock(ix, iy, rentPeriodHours, rentedTill);
+            }
+        }
+        numRentStatuses++;
+        LogRent(numRentStatuses, fromX, fromY, toX, toY, 0, rentedTill, msg.sender);
+        return true;
+    }
+
+    //Mark block for rent (set a hourly rent price)
+    function rentOutBlock(uint8 x, uint8 y, uint hourlyRent) 
+        private
+        onlyByLandlord (x, y) 
+    {   
+        strg.setHourlyRent(x, y, hourlyRent);
+    }
+
+    // rent out an area of blocks at coordinates [fromX, fromY, toX, toY]
+    // hourlyRentForEachBlockInWei = 0 - not for rent
+    // function rentOutArea(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, uint rentForEachBlockCentsPerSecond, uint maxPeriodSeconds)
+    function rentOutArea(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, uint hourlyRentForEachBlockInWei)
+        external
+        returns (bool)
+    {
+        requireLegalCoordinates(fromX, fromY, toX, toY);
+        for (uint8 ix=fromX; ix<=toX; ix++) {
+            for (uint8 iy=fromY; iy<=toY; iy++) {
+                rentOutBlock (ix, iy, hourlyRentForEachBlockInWei);
+            }
+        }
+        numRentStatuses++;
+        LogRent(numRentStatuses, fromX, fromY, toX, toY, hourlyRentForEachBlockInWei, 0, address(0x0));
         return true;
     }
 
@@ -250,14 +330,17 @@ contract MillionEther is Ownable, Destructible {   // production is immortal
 
 // ** PLACE IMAGES ** //
 
-    function requireBlockOwnership(uint8 _x, uint8 _y) private view {
-        require(msg.sender == strg.getBlockOwner(_x, _y));
+    function requireBlockOwnershipOrRent(uint8 _x, uint8 _y) private view {
+        require(
+            msg.sender == strg.getBlockOwner(_x, _y) ||
+            (msg.sender == strg.getRenter(_x, _y) &&  strg.getRentedTill(_x, _y) < now)
+        );
     }
 
-    function requireAreaOwnership(uint8 _fromX, uint8 _fromY, uint8 _toX, uint8 _toY) private view {
+    function requireAreaOwnershipOrRent(uint8 _fromX, uint8 _fromY, uint8 _toX, uint8 _toY) private view {
         for (uint8 ix=_fromX; ix<=_toX; ix++) {
             for (uint8 iy=_fromY; iy<=_toY; iy++) {
-                requireBlockOwnership(ix, iy);
+                requireBlockOwnershipOrRent(ix, iy);
             }
         }
     }
@@ -279,7 +362,7 @@ contract MillionEther is Ownable, Destructible {   // production is immortal
         requireLegalCoordinates(fromX, fromY, toX, toY);
 
         if (msg.sender != moderator && msg.sender != owner) {
-            requireAreaOwnership(fromX, fromY, toX, toY);
+            requireAreaOwnershipOrRent(fromX, fromY, toX, toY);
             chargeForImagePlacement();
         }
 
@@ -295,25 +378,8 @@ contract MillionEther is Ownable, Destructible {   // production is immortal
         return balances[charityVault] + charityPayed;
     }
 
-    function getAreaPrice(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY) external view returns (uint) {
-        uint totalPrice = 0;
-        uint blockPrice;
-        address blockOwner;
-        uint16 iblocksSold = blocksSold;
-        for (uint8 ix=fromX; ix<=toX; ix++) {
-            for (uint8 iy=fromY; iy<=toY; iy++) {
-                (blockPrice, blockOwner) = getBlockPriceAndOwner(ix, iy, iblocksSold);
-                if (blockOwner == address(0x0)) { 
-                        iblocksSold ++; 
-                    }
-                if (blockPrice == 0) { 
-                    return 0; // not for sale
-                    } 
-                totalPrice += blockPrice;
-            }
-        }
-        return totalPrice;
-    }
+    // get area rent price
+    // get area purchase price 
 
 // ** SETTINGS ** //
 
@@ -339,9 +405,18 @@ contract MillionEther is Ownable, Destructible {   // production is immortal
     }
 
     // set image placement fee, min and max rent period
-    function adminFeesAndRentParams(uint newImagePlacementFeeCents, string reason) external onlyOwner {
+    function adminFeesAndRentParams(
+        uint newImagePlacementFeeCents, 
+        uint newMinRentPeriodHours, 
+        uint newMaxRentPeriodHours,
+        string reason) 
+    external 
+    onlyOwner
+    {
         imagePlacementFeeCents = newImagePlacementFeeCents;
-        LogNewFees(newImagePlacementFeeCents, reason);
+        minRentPeriodHours = newMinRentPeriodHours;
+        maxRentPeriodHours = newMaxRentPeriodHours;
+        LogNewFeesAndRentParams(newImagePlacementFeeCents, newMinRentPeriodHours, newMaxRentPeriodHours, reason);
     }
     
     // import old contract blocks
@@ -350,7 +425,7 @@ contract MillionEther is Ownable, Destructible {   // production is immortal
         address landlord;
         uint imageID;
         uint sellPrice;
-        (landlord, imageID, sellPrice) = oldMillionEther.getBlockInfo(x, y);  // WARN! sell price in wei here
+        (landlord, imageID, sellPrice) = oldMillionEther.getBlockInfo(x, y);
         require(landlord != address(0x0));
         setNewBlockOwner(x, y, landlord);
         incrementBlocksSold(1);  //increment blocksSold by 1
@@ -360,7 +435,7 @@ contract MillionEther is Ownable, Destructible {   // production is immortal
     }
 
     function moderatorBanUser(address user, bool ban, string reason) external onlyModerator returns (bool) {
-        bans.setBanStatus(user, ban);
+        strg.setBanStatus(user, ban);
         LogUserBan(user, ban, reason);
         return true;
         }

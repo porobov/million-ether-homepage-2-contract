@@ -1,9 +1,11 @@
 var OldeMillionEther = artifacts.require("./OldeMillionEther.sol");
-var MEStorage = artifacts.require("./MEStorage.sol");
-var Owned = artifacts.require("./Owned.sol");
+var OwnershipLedger = artifacts.require("./OwnershipLedger.sol");
+var ModerationLedger = artifacts.require("./ModerationLedger.sol");
+var OracleProxy = artifacts.require("./OracleProxy.sol");
 
 module.exports = function(deployer) {
-  deployer.deploy(MEStorage);
-  deployer.deploy(Owned);
+  deployer.deploy(OwnershipLedger);
+  deployer.deploy(ModerationLedger);
   deployer.deploy(OldeMillionEther);
+  deployer.deploy(OracleProxy);
 };

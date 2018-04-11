@@ -1,13 +1,10 @@
 pragma solidity ^0.4.18;
 
-import "./Ownable.sol";
-import "./HasNoEther.sol";
-import "./Destructible.sol"; // production is immortal
+import "../installed_contracts/Ownable.sol"; 
+import "../installed_contracts/HasNoEther.sol";
+import "../installed_contracts/Destructible.sol"; // production is immortal
 
-contract MEStorage is Ownable, HasNoEther, Destructible {  // production but is immortal
-
-    // Access
-    address millionEtherAddress;
+contract MEStorage is Ownable, HasNoEther, Destructible, HasAuthorizedAccess {  // production but is immortal
 
     // Blocks
     struct Block {           //Blocks are 10x10 pixel areas. There are 10 000 blocks.
@@ -22,46 +19,34 @@ contract MEStorage is Ownable, HasNoEther, Destructible {  // production but is 
     // Moderation
     mapping(address => bool) public bannedUsers;  // these users are not allowed to place images
 
-
-    // PERMISSIONS
-
-    modifier onlyMillionEther() {
-        require(msg.sender == millionEtherAddress);
-        _;
-    }
-
-    function adminSetMEAddress(address millionEtherAddr) external onlyOwner {
-        millionEtherAddress = millionEtherAddr;
-    }
-
     // SETTERS
 
-    function setBlockOwner(uint8 _x, uint8 _y, address _newOwner) external onlyMillionEther returns (bool) {
+    function setBlockOwner(uint8 _x, uint8 _y, address _newOwner) external auth returns (bool) {
         blocks[_x][_y].landlord = _newOwner;
         return true;
     } 
 
-    function setSellPrice(uint8 _x, uint8 _y, uint _sellPrince) external onlyMillionEther returns (bool) {
+    function setSellPrice(uint8 _x, uint8 _y, uint _sellPrince) external auth returns (bool) {
         blocks[_x][_y].sellPrice = _sellPrince;
         return true;
     }
 
-    function setRenter(uint8 _x, uint8 _y, address _newRenter) external onlyMillionEther returns (bool) {
+    function setRenter(uint8 _x, uint8 _y, address _newRenter) external auth returns (bool) {
         blocks[_x][_y].renter = _newRenter;
         return true;
     }
 
-    function setHourlyRent(uint8 _x, uint8 _y, uint _rentPrice) external onlyMillionEther returns (bool) {
+    function setHourlyRent(uint8 _x, uint8 _y, uint _rentPrice) external auth returns (bool) {
         blocks[_x][_y].rentPrice = _rentPrice;
         return true;
     }
 
-    function setRentedTill(uint8 _x, uint8 _y, uint _rentedTill) external onlyMillionEther returns (bool) {
+    function setRentedTill(uint8 _x, uint8 _y, uint _rentedTill) external auth returns (bool) {
         blocks[_x][_y].rentedTill = _rentedTill;
         return true;
     }
 
-    function setBanStatus(address _user, bool _ban) external onlyMillionEther returns (bool) {
+    function setBanStatus(address _user, bool _ban) external auth returns (bool) {
         bannedUsers[_user] = _ban;
         return true;
     }
