@@ -19,12 +19,13 @@ pragma solidity ^0.4.18;
 
 import "../installed_contracts/Ownable.sol"; 
 import "../installed_contracts/Destructible.sol";
+import "../installed_contracts/math.sol";
 import "./OldeMillionEther.sol";
 import "./OwnershipLedger.sol";
 import "./ModerationLedger.sol";
 import "./OracleProxy.sol";
 
-contract MillionEther is Ownable, Destructible {   // production is immortal
+contract MillionEther is Ownable, DSMath, Destructible {
 
     // External contracts
     OldeMillionEther oldMillionEther;
@@ -67,11 +68,11 @@ contract MillionEther is Ownable, Destructible {   // production is immortal
         bans = ModerationLedger(_bansAddr);
         oracle = _oracleProxyAddr;
         moderator = msg.sender;
-
+        oneCentInWei = 1;  // production remove
         imagePlacementFeeCents = 0;
     }
 
-// ** FUNCTION MODIFIERS (PERMISSIONS) ** //
+// ** MODIFIERS ** //
 
     modifier onlyForSale(uint8 _x, uint8 _y) {
         require(strg.getBlockOwner(_x, _y) == address(0x0) || strg.getSellPrice(_x, _y) != 0);  // address(0x0) - no landlord yet, 0 - not for sale
@@ -81,7 +82,7 @@ contract MillionEther is Ownable, Destructible {   // production is immortal
     // same modifier used too much stack for placeImage and rentBlocks
     function requireLegalCoordinates(uint8 _fromX, uint8 _fromY, uint8 _toX, uint8 _toY) private pure {
         require ((_fromX >= 1) && (_fromY >=1)  && (_toX <= 100) && (_toY <= 100));
-        require ((_fromX <= _toX) && (_fromY <= _toY));  //TODO > 100 area check
+        require ((_fromX <= _toX) && (_fromY <= _toY));
     }
 
     // nobody has access to block ownership except current landlord
@@ -110,26 +111,21 @@ contract MillionEther is Ownable, Destructible {   // production is immortal
 
  // ** PAYMENT PROCESSING ** //
 
-    function crowdsalePriceInUSD(uint _blocksSold) public pure returns (uint) {  
-        return 1 * (2 ** (_blocksSold / 1000));  // price doubles every 1000 blocks sold
+    // doubles price every 1000 blocks sold
+    function crowdsalePriceUSD(uint16 _blocksSold) public pure returns (uint16) {  // production private
+        return uint16(1 * (2 ** (_blocksSold / 1000)));  // check overflow?
     }
 
-    function charityPercent(uint _blocksSold) public pure returns (uint) {
-        return 10 * (_blocksSold / 1000);
+    function charityPercent(uint16 _blocksSold) public pure returns (uint8) {  // production private
+        return uint8(10 * (_blocksSold / 1000));
     }
 
-    function depositTo(address _recipient, uint _amount) public returns (bool) { // TODO private
-        uint balance = balances[_recipient];
-        require (balance + _amount >= balance); // need >= to be able to put 0 credits //checking for overflow  // TODO safemath or something
-        balances[_recipient] = balance + _amount;
-        return true;
+    function depositTo(address _recipient, uint _amount) public { // production private
+        balances[_recipient] = add(balances[_recipient], _amount);
     }
 
-    function deductFrom(address _payer, uint _amount) public returns (bool) {  // production private
-        uint balance = balances[_payer];
-        require (balance >= _amount);
-        balances[_payer] = balance - _amount;
-        return true;
+    function deductFrom(address _payer, uint _amount) public {  // production private
+        balances[_payer] = sub(balances[_payer], _amount);
     }
 
     // reward admin and charity
@@ -139,7 +135,7 @@ contract MillionEther is Ownable, Destructible {   // production is immortal
         depositTo(owner, _amount - goesToCharity);
     }
 
-    function withdrawPayments() public { //zeppelin // TODO 
+    function withdraw() public { //zeppelin // TODO 
         address payee = msg.sender;
         uint256 payment = balances[payee];
 
@@ -159,10 +155,10 @@ contract MillionEther is Ownable, Destructible {   // production is immortal
     function getBlockPriceAndOwner(uint8 _x, uint8 _y, uint16 _iBlocksSold) public view returns (uint, address) {
         if (strg.getBlockOwner(_x, _y) == address(0x0)) { 
             // when buying at initial sale price doubles every 1000 blocks sold
-            return (oneCentInWei * 100 * crowdsalePriceInUSD(_iBlocksSold), address(0x0));
+            return (mul(mul(oneCentInWei, crowdsalePriceUSD(_iBlocksSold)), 100), address(0x0));
         } else {
             // the block is already bought and landlord have set a sell price
-            return (oneCentInWei * strg.getSellPrice(_x, _y), strg.getBlockOwner(_x, _y));
+            return (mul(oneCentInWei, strg.getSellPrice(_x, _y)), strg.getBlockOwner(_x, _y));
         }
     }
 
@@ -172,11 +168,13 @@ contract MillionEther is Ownable, Destructible {   // production is immortal
     }
 
     function incrementBlocksSold(uint16 _iBlocksSold) public { //production make private
-        blocksSold += _iBlocksSold;  // TODO safemath
+        assert(blocksSold + _iBlocksSold >= blocksSold);
+        blocksSold += _iBlocksSold;
+        assert(blocksSold <= 10000);  // total blocks available
     }
 
-    function payBlockOwner(address _blockOwner, uint _blockPrice) public returns (uint8){ //production private
-        uint8 iBlocksSold = 0;
+    function payBlockOwner(address _blockOwner, uint _blockPrice) public returns (uint16){ //production private
+        uint16 iBlocksSold = 0;
         // Buy at initial sale
         if (_blockOwner == address(0x0)) {
             payOwnerAndCharity(_blockPrice);
@@ -188,10 +186,10 @@ contract MillionEther is Ownable, Destructible {   // production is immortal
         return iBlocksSold;
     }
 
-    function buyBlock (uint8 x, uint8 y, uint16 _iBlocksSold)
+    function buyBlock(uint8 x, uint8 y, uint16 _iBlocksSold)
         private
         onlyForSale (x, y)
-        returns (uint8)
+        returns (uint16)
     {
         uint blockPrice;
         address blockOwner;
@@ -201,21 +199,21 @@ contract MillionEther is Ownable, Destructible {   // production is immortal
         return payBlockOwner(blockOwner, blockPrice);
     }
 
-    function buyArea (uint8 fromX, uint8 fromY, uint8 toX, uint8 toY) 
+    function buyArea(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY) 
         external
         payable
-        returns (uint) 
+        returns (uint16) 
     {   
         requireLegalCoordinates(fromX, fromY, toX, toY);
         depositTo(msg.sender, msg.value);
-        // perform buyBlock for coordinates [fromX, fromY, toX, toY] and withdraw funds
-        uint16 iBlocksSold = 0;
+
+        uint16 iBlocksSold = blocksSold; /// TODO check !!!!! 
         for (uint8 ix=fromX; ix<=toX; ix++) {
             for (uint8 iy=fromY; iy<=toY; iy++) {
-                iBlocksSold += buyBlock(ix, iy, iBlocksSold);  // TODO assert everywhere iBlocksSold <=255;
+                iBlocksSold += buyBlock(ix, iy, iBlocksSold);
             }
         }
-        incrementBlocksSold(iBlocksSold);  //TODO overflow assert
+        incrementBlocksSold(iBlocksSold - blocksSold); 
         numOwnershipStatuses++;
         LogOwnership(numOwnershipStatuses, fromX, fromY, toX, toY, msg.sender, 0);
         return iBlocksSold;
@@ -231,10 +229,12 @@ contract MillionEther is Ownable, Destructible {   // production is immortal
 
     // sell an area of blocks at coordinates [fromX, fromY, toX, toY]
     // priceForEachBlockCents = 0 - not for sale
+    // todo check for 0 - mul will not mul with 0
     function sellArea (uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, uint priceForEachBlockCents) 
         external 
         returns (bool) 
-    {
+    {   
+        mul(priceForEachBlockCents, oneCentInWei);  // try multiply now to prevent future overflow
         requireLegalCoordinates(fromX, fromY, toX, toY);
         for (uint8 ix=fromX; ix<=toX; ix++) {
             for (uint8 iy=fromY; iy<=toY; iy++) {
@@ -264,7 +264,7 @@ contract MillionEther is Ownable, Destructible {   // production is immortal
 
     function chargeForImagePlacement() private {
         depositTo(msg.sender, msg.value);
-        uint imagePlacementFeeInWei = imagePlacementFeeCents * oneCentInWei;
+        uint imagePlacementFeeInWei = mul(imagePlacementFeeCents, oneCentInWei); 
         deductFrom(msg.sender, imagePlacementFeeInWei);
         depositTo(owner, imagePlacementFeeInWei);
     }

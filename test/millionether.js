@@ -80,7 +80,7 @@ contract('MillionEther', function(accounts) {
         });
     });
   });
-*/
+
   it("should set storage permission", function() {
 
     return MillionEther.deployed().then(function(instance) {
@@ -93,7 +93,7 @@ contract('MillionEther', function(accounts) {
         });
     });
   });
-
+*/
   it("should let set and get landlord", function() {
 
     return MillionEther.deployed().then(function(instance) {
@@ -120,7 +120,7 @@ contract('MillionEther', function(accounts) {
     });
   });
     
-  it("should double block price in USD every 1000 blocks sold (crowdsaleUSDPrice, private in production)", function() {
+  it("should double block price in USD every 1000 blocks sold (crowdsalePriceUSD, private in production)", function() {
 
     var start_price;
     var price_before_1000;
@@ -129,16 +129,16 @@ contract('MillionEther', function(accounts) {
 
     return MillionEther.deployed().then(function(instance) {
         me2 = instance;
-        return me2.crowdsaleUSDPrice.call(0);
+        return me2.crowdsalePriceUSD.call(0);
     }).then(function(blockPrice) {
         start_price = blockPrice.toNumber();
-        return me2.crowdsaleUSDPrice.call(999);
+        return me2.crowdsalePriceUSD.call(999);
     }).then(function(blockPrice) {
         price_before_1000 = blockPrice.toNumber();
-        return me2.crowdsaleUSDPrice.call(1000);
+        return me2.crowdsalePriceUSD.call(1000);
     }).then(function(blockPrice) {
         price_after_1000 = blockPrice.toNumber();
-        return me2.crowdsaleUSDPrice.call(9999);
+        return me2.crowdsalePriceUSD.call(9999);
     }).then(function(blockPrice) {
         price_before_10000 = blockPrice.toNumber();
 
@@ -149,7 +149,7 @@ contract('MillionEther', function(accounts) {
     });
   });
 
-
+/*
   it("should convert dollars to ether (convertUSDtoWEI, private in production))", function() {
 
     var ethUSDcents = 100000;
@@ -174,7 +174,7 @@ contract('MillionEther', function(accounts) {
         assert.equal(converted_512_USD, web3.toWei(0.512, 'ether'), "512 USD wasn't converted to 0.512 ETH");
     });
   });
-  
+  */
 
   it("should calculate charity percent (charityPercent, private in production)", function() {
 
@@ -452,9 +452,9 @@ contract('MillionEther', function(accounts) {
             me2storage = instance;
             return me2storage.blocks.call(1, 1);
         }).then(function(blockInfo) {
-             return me2.buyBlocks(1, 1, 8, 9, {from: buer_1, value: web3.toWei(1, 'ether'), gas: 4712388});
+             return me2.buyArea(1, 1, 8, 9, {from: buer_1, value: web3.toWei(1, 'ether'), gas: 4712388});
         }).then(function(tx) {
-            logGas(tx, "buyBlocks");
+            logGas(tx, "buyArea");
             return me2storage.blocks.call(1, 1);
         }).then(function(blockInfo) {
             block_owner_1_1 = blockInfo[0];
