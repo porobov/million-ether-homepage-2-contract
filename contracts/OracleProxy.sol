@@ -1,18 +1,16 @@
 pragma solidity ^0.4.18;
 
-import "../installed_contracts/Ownable.sol"; 
-import "../installed_contracts/Destructible.sol";
-import "./MillionEther.sol";
+import "./Storage.sol";
 
-contract OracleProxy is Ownable, Destructible {
+contract OracleProxy is Destructible, Storage {
     
-    MillionEther public ME;
-    
-    function setME(address meAddress) public payable {
-        ME = MillionEther(meAddress);
+    uint public oneCentInWei;
+
+    function OracleProxy() {
+        oneCentInWei = 1;  // TODO remove after debug
     }
-
-    function __callback(uint oneCentInWei) public {
-        ME.oracleSetOneCentInWei(oneCentInWei);
+    
+    function getOneCentInWei() external view returns (uint) {
+        return oneCentInWei;
     }
 }

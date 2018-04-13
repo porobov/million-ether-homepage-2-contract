@@ -1,11 +1,8 @@
 pragma solidity ^0.4.18;
 
-import "../installed_contracts/Ownable.sol";
-import "../installed_contracts/HasNoEther.sol";
-import "../installed_contracts/Destructible.sol"; // production is immortal
-import "./HasAuthorizedAccess.sol";
+import "./Storage.sol";
 
-contract OwnershipLedger is Ownable, HasNoEther, Destructible, HasAuthorizedAccess {  // production but is immortal
+contract OwnershipLedger is Storage {
 
     // Blocks
     struct Block {           //Blocks are 10x10 pixel areas. There are 10 000 blocks.
@@ -16,12 +13,12 @@ contract OwnershipLedger is Ownable, HasNoEther, Destructible, HasAuthorizedAcce
 
     // SETTERS
 
-    function setBlockOwner(uint8 _x, uint8 _y, address _newOwner) external auth returns (bool) {
+    function setBlockOwner(uint8 _x, uint8 _y, address _newOwner) external onlyClient returns (bool) {
         blocks[_x][_y].landlord = _newOwner;
         return true;
     } 
 
-    function setSellPrice(uint8 _x, uint8 _y, uint _sellPrince) external auth returns (bool) {
+    function setSellPrice(uint8 _x, uint8 _y, uint _sellPrince) external onlyClient returns (bool) {
         blocks[_x][_y].sellPrice = _sellPrince;
         return true;
     }

@@ -6,8 +6,14 @@ var MillionEther = artifacts.require("./MillionEther.sol");
 
 module.exports = function(deployer) {
   deployer.deploy(MillionEther, OwnershipLedger.address, OldeMillionEther.address, OracleProxy.address, ModerationLedger.address).then(() => {
-    OwnershipLedger.deployed().then(inst => {
-        return inst.adminSetAuth(MillionEther.address);
+    OwnershipLedger.deployed().then(ownershipLedger => {
+        return ownershipLedger.setClient(MillionEther.address);
+    });
+    ModerationLedger.deployed().then(moderationLedger => {
+        return moderationLedger.setClient(MillionEther.address);
+    });
+    OracleProxy.deployed().then(oracleProxy => {
+        return oracleProxy.setClient(MillionEther.address);
     });
   });
 };

@@ -29,20 +29,17 @@ contract MillionEther is Ownable, DSMath, Destructible {
 
     // External contracts
     OldeMillionEther oldMillionEther;
-    OwnershipLedger  strg; // owners
-    ModerationLedger bans;  // bans
-    //OracleProxy usd;
+    OwnershipLedger  strg; // ownrs
+    ModerationLedger bans;  // ban
+    OracleProxy usd;  // orcl
 
     // Admin settings
-    address public oracle;
-    address public moderator;
     uint    public imagePlacementFeeCents;
 
     // Accounting
     mapping(address => uint) public balances;
     address public constant charityVault = 0x616c6C20796F75206e656564206973206C6f7665; // "all you need is love" in hex format. Insures nobody has access to it. Used for internal acounting only. 
     uint public charityPayed = 0;
-    uint public oneCentInWei;
 
     // Counters
     uint16  public blocksSold = 0;
@@ -54,21 +51,24 @@ contract MillionEther is Ownable, DSMath, Destructible {
     event LogImage     (uint ID, uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, string imageSourceUrl, string adUrl, string adText, address indexed publisher);
 
     // Reports
-    event LogNewOneCentInWei(uint oneCentInWei);
+    event LogNewOracleProxy(address oracleProxy, string reason);
     event LogCharityTransfer(address charityAddress, uint amount, string reason);
-    event LogNewPermissions(address oracle, address moderator, string reason);
     event LogNewFees(uint newImagePlacementFeeCents, string reason);
-    event LogUserBan(address user, bool ban, string reason);
+    // TODO let set new oracle
 
 // ** INITIALIZE ** //
 
     function MillionEther (address _strgAddr, address _oldMillionEtherAddr, address _oracleProxyAddr, address _bansAddr) public {
         oldMillionEther = OldeMillionEther(_oldMillionEtherAddr);
+        
         strg = OwnershipLedger(_strgAddr);
+        require(strg.isStorage());
+
         bans = ModerationLedger(_bansAddr);
-        oracle = _oracleProxyAddr;
-        moderator = msg.sender;
-        oneCentInWei = 1;  // production remove
+        require(bans.isStorage());
+
+        adminSetOracle(_oracleProxyAddr, "init");
+
         imagePlacementFeeCents = 0;
     }
 
@@ -88,17 +88,6 @@ contract MillionEther is Ownable, DSMath, Destructible {
     // nobody has access to block ownership except current landlord
     modifier onlyByLandlord(uint8 _x, uint8 _y) {
         require(strg.getBlockOwner(_x, _y) == msg.sender);  
-        _;
-    }
-
-    modifier onlyOracle() {
-        require(msg.sender == oracle);
-        _;
-    }
-
-    // owner sets moderator, no sense to block owner
-    modifier onlyModerator() {
-        require(msg.sender == moderator || msg.sender == owner);  
         _;
     }
 
@@ -155,10 +144,10 @@ contract MillionEther is Ownable, DSMath, Destructible {
     function getBlockPriceAndOwner(uint8 _x, uint8 _y, uint16 _iBlocksSold) public view returns (uint, address) {
         if (strg.getBlockOwner(_x, _y) == address(0x0)) { 
             // when buying at initial sale price doubles every 1000 blocks sold
-            return (mul(mul(oneCentInWei, crowdsalePriceUSD(_iBlocksSold)), 100), address(0x0));
+            return (mul(mul(usd.getOneCentInWei(), crowdsalePriceUSD(_iBlocksSold)), 100), address(0x0));
         } else {
             // the block is already bought and landlord have set a sell price
-            return (mul(oneCentInWei, strg.getSellPrice(_x, _y)), strg.getBlockOwner(_x, _y));
+            return (mul(usd.getOneCentInWei(), strg.getSellPrice(_x, _y)), strg.getBlockOwner(_x, _y));
         }
     }
 
@@ -234,7 +223,7 @@ contract MillionEther is Ownable, DSMath, Destructible {
         external 
         returns (bool) 
     {   
-        mul(priceForEachBlockCents, oneCentInWei);  // try multiply now to prevent future overflow
+        mul(priceForEachBlockCents, usd.getOneCentInWei());  // try multiply now to prevent future overflow
         requireLegalCoordinates(fromX, fromY, toX, toY);
         for (uint8 ix=fromX; ix<=toX; ix++) {
             for (uint8 iy=fromY; iy<=toY; iy++) {
@@ -264,7 +253,7 @@ contract MillionEther is Ownable, DSMath, Destructible {
 
     function chargeForImagePlacement() private {
         depositTo(msg.sender, msg.value);
-        uint imagePlacementFeeInWei = mul(imagePlacementFeeCents, oneCentInWei); 
+        uint imagePlacementFeeInWei = mul(imagePlacementFeeCents, usd.getOneCentInWei()); 
         deductFrom(msg.sender, imagePlacementFeeInWei);
         depositTo(owner, imagePlacementFeeInWei);
     }
@@ -278,7 +267,7 @@ contract MillionEther is Ownable, DSMath, Destructible {
     {   
         requireLegalCoordinates(fromX, fromY, toX, toY);
 
-        if (msg.sender != moderator && msg.sender != owner) {
+        if (!bans.isModerator(msg.sender) && msg.sender != owner) {
             requireAreaOwnership(fromX, fromY, toX, toY);
             chargeForImagePlacement();
         }
@@ -317,12 +306,6 @@ contract MillionEther is Ownable, DSMath, Destructible {
 
 // ** SETTINGS ** //
 
-    // ETHUSD price oracle
-    function oracleSetOneCentInWei(uint newOneCentInWei) external onlyOracle returns (bool) {
-        oneCentInWei = newOneCentInWei;
-        LogNewOneCentInWei(newOneCentInWei);
-    }
-
     // transfer charity to an address (internally)
     function adminTransferCharity(address charityAddress, uint amount, string reason) external onlyOwner {
         deductFrom(charityVault, amount);
@@ -331,17 +314,16 @@ contract MillionEther is Ownable, DSMath, Destructible {
         LogCharityTransfer(charityAddress, amount, reason);
     }
 
-    // set oracle and moderator
-    function adminPermissions(address newOracle, address newModerator, string reason) external onlyOwner {
-        if (newOracle != address(0x0)) { oracle = newOracle; }
-        if (newModerator != address(0x0)) { moderator = newModerator; }
-        LogNewPermissions(newOracle, newModerator, reason);
-    }
-
     // set image placement fee, min and max rent period
-    function adminFeesAndRentParams(uint newImagePlacementFeeCents, string reason) external onlyOwner {
+    function adminImagePlacementFee(uint newImagePlacementFeeCents, string reason) external onlyOwner {
         imagePlacementFeeCents = newImagePlacementFeeCents;
         LogNewFees(newImagePlacementFeeCents, reason);
+    }
+
+    function adminSetOracle(address oracleProxyAddr, string reason) public onlyOwner {
+        usd = OracleProxy(oracleProxyAddr);
+        require(usd.isStorage());
+        LogNewOracleProxy(oracleProxyAddr, reason);
     }
     
     // import old contract blocks
@@ -359,14 +341,6 @@ contract MillionEther is Ownable, DSMath, Destructible {
         return true;
     }
 
-    function moderatorBanUser(address user, bool ban, string reason) external onlyModerator returns (bool) {
-        bans.setBanStatus(user, ban);
-        LogUserBan(user, ban, reason);
-        return true;
-        }
+    // fallback
+    function() public { }
 }
-
-// TODO fallback
-// TODO kill
-
-//}
