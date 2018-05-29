@@ -105,10 +105,6 @@ contract MillionEther is Ownable, DSMath, Destructible {
         return uint16(1 * (2 ** (_blocksSold / 1000)));  // check overflow?
     }
 
-    function charityPercent(uint16 _blocksSold) public pure returns (uint8) {  // production private
-        return uint8(10 * (_blocksSold / 1000));
-    }
-
     function depositTo(address _recipient, uint _amount) public { // production private
         balances[_recipient] = add(balances[_recipient], _amount);
     }
@@ -119,7 +115,7 @@ contract MillionEther is Ownable, DSMath, Destructible {
 
     // reward admin and charity
     function payOwnerAndCharity(uint _amount) public {  // production private
-        uint goesToCharity = _amount * charityPercent(blocksSold) / 100;
+        uint goesToCharity = _amount * 0.8;  // 80% goes to charity
         depositTo(charityVault, goesToCharity);
         depositTo(owner, _amount - goesToCharity);
     }
