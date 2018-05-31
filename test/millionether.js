@@ -467,6 +467,9 @@ contract('MillionEther', function(accounts) {
         });
     });
   });
+  
+  // TODO set sell price to zero (not for sale)
+  // TODO try mul with mul(322, 0) or mul(0, 322)
 
   //  function placeImage (uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, string imageSourceUrl, string adUrl, string adText) 
 
