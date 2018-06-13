@@ -22,7 +22,6 @@ import "../installed_contracts/Destructible.sol";
 import "../installed_contracts/math.sol";
 import "./OldeMillionEther.sol";
 import "./OwnershipLedger.sol";
-import "./ModerationLedger.sol";
 import "./OracleProxy.sol";
 
 contract MillionEther is Ownable, DSMath, Destructible {
@@ -30,7 +29,6 @@ contract MillionEther is Ownable, DSMath, Destructible {
     // External contracts
     OldeMillionEther oldMillionEther;
     OwnershipLedger  strg; // ownrs
-    ModerationLedger bans;  // ban
     OracleProxy usd;  // orcl
 
     // Admin settings
@@ -64,9 +62,6 @@ contract MillionEther is Ownable, DSMath, Destructible {
         strg = OwnershipLedger(_strgAddr);
         require(strg.isStorage());
 
-        bans = ModerationLedger(_bansAddr);
-        require(bans.isStorage());
-
         adminSetOracle(_oracleProxyAddr, "init");
 
         imagePlacementFeeCents = 0;
@@ -89,11 +84,6 @@ contract MillionEther is Ownable, DSMath, Destructible {
     // function instead of modifier as modifier used too much stack for placeImage
     function requireBlockOwnership(uint8 _x, uint8 _y) private view {
         require(msg.sender == strg.getBlockOwner(_x, _y));
-    }
-
-    modifier noBannedUsers() {
-        require(bans.getBanStatus(msg.sender) == false);
-        _;
     }
 
 
@@ -258,12 +248,8 @@ contract MillionEther is Ownable, DSMath, Destructible {
         returns (uint)
     {   
         requireLegalCoordinates(fromX, fromY, toX, toY);
-
-        if (!bans.isModerator(msg.sender) && msg.sender != owner) {
-            requireAreaOwnership(fromX, fromY, toX, toY);
-            chargeForImagePlacement();
-        }
-
+        requireAreaOwnership(fromX, fromY, toX, toY);
+        chargeForImagePlacement();
         numImages++;
         LogImage(numImages, fromX, fromY, toX, toY, imageSourceUrl, adUrl, adText, msg.sender);  // production add emit 
         return numImages;
