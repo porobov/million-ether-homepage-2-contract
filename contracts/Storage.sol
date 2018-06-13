@@ -1,8 +1,8 @@
 pragma solidity ^0.4.18;
 
-import "../installed_contracts/Ownable.sol"; 
-import "../installed_contracts/HasNoEther.sol";
-import "../installed_contracts/Destructible.sol"; // production is immortal
+import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
+import "openzeppelin-solidity/contracts/ownership/HasNoEther.sol";
+import "openzeppelin-solidity/contracts/lifecycle/Destructible.sol";  // production is immortal
 
 contract Storage is Ownable, HasNoEther, Destructible {  // production but is immortal {
 

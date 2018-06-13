@@ -1,8 +1,12 @@
 pragma solidity ^0.4.18;
 
 import "./Storage.sol";
+import "openzeppelin-solidity/contracts/token/ERC721/ERC721.sol";
+import "openzeppelin-solidity/contracts/token/ERC721/ERC721Basic.sol";
+import "openzeppelin-solidity/contracts/token/ERC721/ERC721Token.sol";
 
-contract OwnershipLedger is Storage {
+contract OwnershipLedger is ERC721Token("MillionEtherHomePage","MEH"), Storage {
+
 
     // Blocks
     struct Block {           //Blocks are 10x10 pixel areas. There are 10 000 blocks.
@@ -10,6 +14,7 @@ contract OwnershipLedger is Storage {
         uint sellPrice;      //price if willing to sell, 0 if not
     }
     Block[101][101] public blocks; 
+
 
     // SETTERS
 

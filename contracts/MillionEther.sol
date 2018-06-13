@@ -17,8 +17,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 pragma solidity ^0.4.18;
 
-import "../installed_contracts/Ownable.sol"; 
-import "../installed_contracts/Destructible.sol";
+// import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
+// import "openzeppelin-solidity/contracts/lifecycle/Destructible.sol";
 import "../installed_contracts/math.sol";
 import "./OldeMillionEther.sol";
 import "./OwnershipLedger.sol";
@@ -190,7 +190,7 @@ contract MillionEther is Ownable, DSMath, Destructible {
         }
         incrementBlocksSold(iBlocksSold);  // put outside for-loops to save gas
         numOwnershipStatuses++;
-        LogOwnership(numOwnershipStatuses, fromX, fromY, toX, toY, msg.sender, 0);
+        emit LogOwnership(numOwnershipStatuses, fromX, fromY, toX, toY, msg.sender, 0);
         return iBlocksSold;
     }
 
@@ -217,7 +217,7 @@ contract MillionEther is Ownable, DSMath, Destructible {
             }
         }
         numOwnershipStatuses++;
-        LogOwnership(numOwnershipStatuses, fromX, fromY, toX, toY, address(0x0), priceForEachBlockCents);
+        emit LogOwnership(numOwnershipStatuses, fromX, fromY, toX, toY, address(0x0), priceForEachBlockCents);
         return true;
     }
 
@@ -250,7 +250,7 @@ contract MillionEther is Ownable, DSMath, Destructible {
         requireAreaOwnership(fromX, fromY, toX, toY);
         chargeForImagePlacement();
         numImages++;
-        LogImage(numImages, fromX, fromY, toX, toY, imageSourceUrl, adUrl, adText, msg.sender);  // production add emit 
+        emit LogImage(numImages, fromX, fromY, toX, toY, imageSourceUrl, adUrl, adText, msg.sender);  // production add emit 
         return numImages;
     }
 
@@ -289,19 +289,19 @@ contract MillionEther is Ownable, DSMath, Destructible {
         deductFrom(charityVault, amount);
         depositTo(charityAddress, amount);
         charityPayed += amount;
-        LogCharityTransfer(charityAddress, amount, reason);
+        emit LogCharityTransfer(charityAddress, amount, reason);
     }
 
     // set image placement fee
     function adminImagePlacementFee(uint newImagePlacementFeeCents, string reason) external onlyOwner {
         imagePlacementFeeCents = newImagePlacementFeeCents;
-        LogNewFees(newImagePlacementFeeCents, reason);
+        emit LogNewFees(newImagePlacementFeeCents, reason);
     }
 
     function adminSetOracle(address oracleProxyAddr, string reason) public onlyOwner {
         usd = OracleProxy(oracleProxyAddr);
         require(usd.isStorage());
-        LogNewOracleProxy(oracleProxyAddr, reason);
+        emit LogNewOracleProxy(oracleProxyAddr, reason);
     }
     
     // import old contract blocks
@@ -315,7 +315,7 @@ contract MillionEther is Ownable, DSMath, Destructible {
         strg.setBlockOwner(x, y, landlord);
         incrementBlocksSold(1);  //increment blocksSold by 1
         numOwnershipStatuses++;
-        LogOwnership(numOwnershipStatuses, x, y, x, y, landlord, 0);
+        emit LogOwnership(numOwnershipStatuses, x, y, x, y, landlord, 0);
         return true;
     }
 
