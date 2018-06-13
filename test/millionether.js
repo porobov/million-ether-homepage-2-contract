@@ -2,36 +2,10 @@ var MEStorage = artifacts.require("./OwnershipLedger.sol");
 var OldeMillionEther = artifacts.require("./OldeMillionEther.sol");
 var MillionEther = artifacts.require("./MillionEther.sol");
 
-// contract('OldeMillionEther', function(accounts) {
-
-//   var owner = web3.eth.accounts[0]
-//   var user_1 = web3.eth.accounts[1]
-//   var user_2 = web3.eth.accounts[2]
-
-
-//   it("Should let set initial state", function() {
-
-//     return OldeMillionEther.deployed().then(function(instance) {
-//         me = instance;
-//         return me.signIn(owner, {from: user_1, gas: 4712388});
-//     }).then(function(tx) {
-//         return me.getUserInfo.call(owner);
-//     }).then(function(user_info) {
-//         return me.set_current_state({from: owner, gas: 4712388});
-//     }).then(function(tx) {
-//         return me.getBlockInfo.call(19, 19);
-//     }).then(function(blockInfo) {
-//         block_owner_1 = blockInfo[0];
-//         assert.equal(block_owner_1.toLowerCase(), "0xCA9f7D9aD4127e374cdaB4bd0a884790C1B03946".toLowerCase(), "old ME was not set correctly");
-//     });
-//   });
-
-// });
-
 
 contract('MillionEther', function(accounts) {
 
-  var owner = web3.eth.accounts[0]
+  var admin = web3.eth.accounts[0]
   var user_1 = web3.eth.accounts[1]
   var user_2 = web3.eth.accounts[2]
   var charityAddress = '0x616c6C20796F75206e656564206973206C6f7665'
@@ -47,435 +21,207 @@ contract('MillionEther', function(accounts) {
   }
 
 /*
-  it("Should let set initial state", function() {
-
-    return OldeMillionEther.deployed().then(function(instance) {
-        me = instance;
-        return me.signIn(owner, {from: user_1, gas: 4712388});
-    }).then(function(tx) {
-        return me.getUserInfo.call(owner);
-    }).then(function(user_info) {
-        return me.set_current_state({from: owner, gas: 4712388});
-    }).then(function(tx) {
-        return me.getBlockInfo.call(19, 19);
-    }).then(function(blockInfo) {
-        block_owner_1 = blockInfo[0];
-        assert.equal(block_owner_1.toLowerCase(), "0xCA9f7D9aD4127e374cdaB4bd0a884790C1B03946".toLowerCase(), "old ME was not set correctly");
-    });
-  });
-    
-  it("should let import old ME", function() {
-
-    return MillionEther.deployed().then(function(instance) {
-        me2 = instance;
-        return MEStorage.deployed().then(function(instance) {
-            me2storage = instance;
-            return me2.import_old_me(19, 19, {from: owner, gas: 4712388});
-        }).then(function(tx) {
-            logGas(tx, "import_old_me")
-            return me2storage.blocks.call(19, 19);
-        }).then(function(blockInfo) {
-            block_owner_1 = blockInfo[0];
-            assert.equal(block_owner_1.toLowerCase(), "0xCA9f7D9aD4127e374cdaB4bd0a884790C1B03946".toLowerCase(), "old ME was not imported correctly");
-        });
-    });
-  });
-
-  it("should set storage permission", function() {
-
-    return MillionEther.deployed().then(function(instance) {
-        me2 = instance;
-        return MEStorage.deployed().then(function(instance) {
-            me2storage = instance;
-            return me2storage.accessLevel.call(me2.address);
-        }).then(function(access) {
-            assert.equal(access.toNumber(), 2, "storage permissions was not set correctly");
-        });
-    });
-  });
+ # Покупаем 1 блок. Алиса покупает 1 блок (buyArea, getBlockPriceAndOwner, incrementBlocksSold)
+$1 - 0
+Проверяем:
+- Она владелец этого блока (getBlockPriceAndOwner)
+- Количество проданных блоков увеличилось
+- Благотворительность и владелец получили деньги
+- Баланс контракта увеличился
 */
-  it("should let set and get landlord", function() {
 
-    return MillionEther.deployed().then(function(instance) {
-        me2 = instance;
-        return MEStorage.deployed().then(function(instance) {
-            me2storage = instance;
-            return me2.setNewBlockOwner(20, 20, user_1, {from: owner, gas: 4712388});
-        }).then(function(tx) {
-            logGas(tx, "setBlockOwner");
-            return me2storage.getBlockOwner.call(20, 20);
-        }).then(function(blockOwner) {
-            block_owner_1 = blockOwner;
-            assert.equal(block_owner_1, user_1, "old ME was not set correctly");
-        });
-    });
-  });
+  it("should let buy a block 1x1", async () => {
+    const me2 = await MillionEther.deployed();
+    const me2storage = await MEStorage.deployed();
 
-  it("should set owner", function() {
+    const buyer = user_1;
+    const blocks_sold_before = await me2.blocksSold.call();
+    const admin_bal_before = await me2.balances.call(admin);
+    const charity_bal_berore = await me2.balances.call(charityAddress);
 
-    return MillionEther.deployed().then(function(instance) {
-        return instance.owner.call();
-    }).then(function(balance) {
-        assert.equal(balance.valueOf(), owner, "owner was not set correctly");
-    });
-  });
-    
-  it("should double block price in USD every 1000 blocks sold (crowdsalePriceUSD, private in production)", function() {
+    tx = await me2.buyArea(1, 1, 1, 1, {from: buyer, value: web3.toWei(100, 'wei'), gas: 4712388});
+    logGas(tx, "buyArea (one block");
 
-    var start_price;
-    var price_before_1000;
-    var price_after_1000;
-    var price_before_10000;
+    const blocks_sold_after = await me2.blocksSold.call();
+    const block_1_1_owner = await me2storage.getBlockOwner.call(1, 1);
+    const admin_bal_after = await me2.balances.call(admin);
+    const charity_bal_after = await me2.balances.call(charityAddress);
 
-    return MillionEther.deployed().then(function(instance) {
-        me2 = instance;
-        return me2.crowdsalePriceUSD.call(0);
-    }).then(function(blockPrice) {
-        start_price = blockPrice.toNumber();
-        return me2.crowdsalePriceUSD.call(999);
-    }).then(function(blockPrice) {
-        price_before_1000 = blockPrice.toNumber();
-        return me2.crowdsalePriceUSD.call(1000);
-    }).then(function(blockPrice) {
-        price_after_1000 = blockPrice.toNumber();
-        return me2.crowdsalePriceUSD.call(9999);
-    }).then(function(blockPrice) {
-        price_before_10000 = blockPrice.toNumber();
-
-        assert.equal(start_price, 1, "the price wasn't 1 USD at start");
-        assert.equal(price_before_1000, 1, "the price wasn't 1 USD at 999 blocks sold");
-        assert.equal(price_after_1000, 2, "the price wasn't 2 USD at 1000 blocks sold");
-        assert.equal(price_before_10000, 512, "the price wasn't 512 USD at 9999 blocks sold");
-    });
-  });
+    assert .equal(admin_bal_after.toNumber() - admin_bal_before.toNumber(), web3.toWei(20, 'wei'), 
+        "admin balance didn't increase right")
+    assert .equal(charity_bal_after.toNumber() - charity_bal_berore.toNumber(), web3.toWei(80, 'wei'),    
+        "charity balance didn't increase right")
+    assert.equal(blocks_sold_after - blocks_sold_before, 1,    
+        "blocksSold didn't increment by 1 (incrementBlocksSold)")
+    assert.equal(block_1_1_owner, buyer,                       
+        "the block 1x1 owner wasn't set");
+  })
 
 /*
-  it("should convert dollars to ether (convertUSDtoWEI, private in production))", function() {
+# Много блоков
+$1 - 1
+- Покупаем много блоков. Боб покупает 6 блоков (buyArea, getBlockPriceAndOwner, incrementBlocksSold, depositToAdminAndCharity, depositTo)
+- Внести средств для покупки 16 блоков.
+- Проверить, что владелец получил 2 вей, а благотворительность 4 вей, а у Боба осталось 10. 
+- Баланс контракта увеличился
 
-    var ethUSDcents = 100000;
-    var converted_1_USD;
-    var converted_2_USD;
-    var converted_512_USD;
+- Покупаем много блоков снова. Боб покупает 10 блоков (depositToAdminAndCharity, deductFrom)
+- Проверить, что владелец получил 2 эфира, а благотворительность 8
+- Проверить, что у Боба баланс равен 0. 
+*/
 
-    return MillionEther.deployed().then(function(instance) {
-        me2 = instance;
-        return me2.convertUSDtoWEI.call(1, ethUSDcents);
-    }).then(function(priceInWei) {
-        converted_1_USD = priceInWei.toNumber();
-        return me2.convertUSDtoWEI.call(2, ethUSDcents);
-    }).then(function(priceInWei) {
-        converted_2_USD = priceInWei.toNumber();
-        return me2.convertUSDtoWEI.call(512, ethUSDcents);
-    }).then(function(priceInWei) {
-        converted_512_USD = priceInWei.toNumber();
+  it("should let buy many block", async () => {
+    const me2 = await MillionEther.deployed();
+    const me2storage = await MEStorage.deployed();
 
-        assert.equal(converted_1_USD, web3.toWei(0.001, 'ether'), "1 USD wasn't converted to 0.001 ETH");
-        assert.equal(converted_2_USD, web3.toWei(0.002, 'ether'), "2 USD wasn't converted to 0.002 ETH");
-        assert.equal(converted_512_USD, web3.toWei(0.512, 'ether'), "512 USD wasn't converted to 0.512 ETH");
-    });
-  });
-  */
+    const buyer = user_2;
+    const blocks_sold_before = await me2.blocksSold.call();
+    const contract_balance_before = await web3.eth.getBalance(me2.address);
 
-  it("should calculate charity percent (charityPercent, private in production)", function() {
+    const tx = await me2.buyArea(1, 3, 6, 3, {from: buyer, value: web3.toWei(1600, 'wei'), gas: 4712388});
+    logGas(tx, "buyArea (6 blocks");
 
-    var charity_percent_at_start;
-    var charity_before_1000;
-    var charity_after_1000;
-    var charity_before_10000;
+    const blocks_sold_after = await me2.blocksSold.call();
+    const block_6_3_owner = await me2storage.getBlockOwner.call(6, 3);
+    const buyer_bal_after = await me2.balances.call(buyer);
+    const contract_balance_after = await web3.eth.getBalance(me2.address);
 
-    return MillionEther.deployed().then(function(instance) {
-        me2 = instance;
-        return me2.charityPercent.call(0);
-    }).then(function(percent) {
-        charity_percent_at_start = percent.toNumber();
-        return me2.charityPercent.call(999);
-    }).then(function(percent) {
-        charity_before_1000 = percent.toNumber();
-        return me2.charityPercent.call(1000);
-    }).then(function(percent) {
-        charity_after_1000 = percent.toNumber();
-        return me2.charityPercent.call(8999);
-    }).then(function(percent) {
-        charity_before_9000 = percent.toNumber();
-        return me2.charityPercent.call(9999);
-    }).then(function(percent) {
-        charity_before_10000 = percent.toNumber();
-
-        assert.equal(charity_percent_at_start, 0, "the charity percent wasn't 0 % at start");
-        assert.equal(charity_before_1000, 0, "the charity percent wasn't 0 % at 999 blocks sold");
-        assert.equal(charity_after_1000, 10, "the charity percent wasn't 10 % at 1000 blocks sold");
-        assert.equal(charity_before_9000, 80, "the charity percent wasn't 80 % at 8999 blocks sold");
-        assert.equal(charity_before_10000, 90, "the charity percent wasn't 90 % at 9999 blocks sold");
-    });
-  });
+    assert.equal(blocks_sold_after.toNumber() - blocks_sold_before.toNumber(), 6, 
+        "blocksSold didn't increment right")
+    assert.equal(buyer_bal_after.toNumber(), web3.toWei(1000, 'wei'), 
+        "buyer balance wasn't calculated right")
+    assert.equal(block_6_3_owner, buyer, 
+        "the block 6x3 owner wasn't set to buyer");
+    assert.equal(contract_balance_after.toNumber() - contract_balance_before.toNumber(), 1600, 
+        "contract balance didn't increase right");
+    })
 
 
+// Illegal buy/sell actions
 
-  it("should deposit and deduct funds (depositTo/deductFrom, private in production)", function() {
+  it("should permit buying block not marked for sale (onlyForSale)", async () => {
+    const me2 = await MillionEther.deployed();
+    const buyer = user_1;
+    var error = "";
+    try {
+        const tx = await me2.buyArea(1, 3, 1, 3, {from: buyer, value: web3.toWei(1, 'ether'), gas: 4712388});
+    } catch (err) {
+        error = err
+    }
+    assert.equal(error.message.substring(43,49), "revert", "allowed buying block not marked for sale!");
+  })
 
-    var recipient = user_1;
-    var balance_before;
-    var deposit = web3.toWei(1, 'ether');
-    var deduct = web3.toWei(0.5, 'ether');
-    var balance_after_deposit;
-    var balance_after_deduction;
+  it("should permit buying block beyond 1000x1000 px field (requireLegalCoordinates)", async () => {
+    const me2 = await MillionEther.deployed();
+    const buyer = user_1;
+    var error = "";
+    try {
+        const tx = await me2.buyArea(100, 101, 100, 101, {from: buyer, value: web3.toWei(1600, 'wei'), gas: 4712388});
+    } catch (err) {
+        error = err
+    }
+    assert.equal(error.message.substring(43,49), "revert", "allowed buying block beyond 1000x1000 px field!");
+  })
 
-    return MillionEther.deployed().then(function(instance) {
-        me2 = instance;
-        return MEStorage.deployed().then(function(instance) {
-            me2storage = instance;
-            return me2.balances.call(recipient);
-        }).then(function(bal) {
-            balance_before = bal.toNumber();
-            return me2.depositTo(recipient, deposit, {from: recipient, gas: 4712388});
-        }).then(function(tx) {
-            return me2.balances.call(recipient);
-        }).then(function(bal) {
-            balance_after_deposit = bal.toNumber();
-            return me2.deductFrom(recipient, deduct, {from: recipient, gas: 4712388});
-        }).then(function(tx) {
-            return me2.balances.call(recipient);
-        }).then(function(bal) {
-            balance_after_deduction = bal.toNumber();
+  it("should permit selling other landlord's block (requireBlockOwnership)", async () => {
+    const me2 = await MillionEther.deployed();
+    const buyer = user_1;
+    var error = "";
+    try {
+        const tx = await me2.sellArea(1, 3, 1, 3, 100, {from: buyer, gas: 4712388});
+    } catch (err) {
+        error = err
+    }
+    assert.equal(error.message.substring(43,49), "revert", "allowed selling other landlord's block!");
+  })
 
-            deposited = balance_after_deposit - balance_before;
-            deducted = balance_after_deposit - balance_after_deduction;
-            assert.equal(deposited, deposit, "funds weren't deposited correctly");
-            assert.equal(deducted, deduct, "funds weren't deducted correctly");
-        });
-    });
-  });
+  it("should permit selling crowdsale block (requireBlockOwnership)", async () => {
+    const me2 = await MillionEther.deployed();
+    const buyer = user_1;
+    var error = "";
+    try {
+        const tx = await me2.sellArea(1, 2, 1, 2, 100, {from: buyer, gas: 4712388});
+    } catch (err) {
+        error = err
+    }
+    assert.equal(error.message.substring(43,49), "revert", "allowed selling crowdsale block!");
+  })
+
+// # Продажа блоков
+// - Выставляем блоки на продажу. Боб выставляет блоки на продажу
+// - Проверить, что блоки на продаже (getBlockPriceAndOwner)
+// - Покупаем у landlord'a. Алиса покупает 30 блоков, включая блоки боба
+// - Проверить баланс Боба и Алисы
+// - Снять блок с продажи
 
 
-  it("should increment blocksSold (incrementBlocksSold, private in production)", function() {
+// Selling blocks
+
+  it("should let sell blocks", async () => {
+    const me2 = await MillionEther.deployed();
+    const me2storage = await MEStorage.deployed();
+
+    const seller = user_2;
+    const buyer = user_1;
+    const seller_bal_before = await me2.balances.call(seller);
+    const buyer_bal_before = await me2.balances.call(buyer);
+    const blocks_sold_before = await me2.blocksSold.call();
+
+    var tx = await me2.sellArea(1, 3, 6, 3, 200, {from: seller, gas: 4712388});
+    // selling and buying from theirown
+    tx = await me2.sellArea(1, 1, 1, 1, 100, {from: buyer, gas: 4712388});
+    // buy 15 blocks, including her own one, 5 from other landlord, leave block 6x3 on sale
+    tx = await me2.buyArea(1, 1, 5, 3, {from: buyer, value: web3.toWei(1900, 'wei'), gas: 4712388});
+    logGas(tx, "buyArea (15 blocks, 6 from a landlord");
+
+    const seller_bal_after = await me2.balances.call(seller);
+    const buyer_bal_after = await me2.balances.call(buyer);
+    const blocks_sold_after = await me2.blocksSold.call();
+    const block_5_3_owner = await me2storage.getBlockOwner.call(5, 3);
     
-    var blocksSold_before;
-    var increment_by = 100;
-    var blocksSold_after;
 
-    return MillionEther.deployed().then(function(instance) {
-        me2 = instance;
-        return MEStorage.deployed().then(function(instance) {
-            me2storage = instance;
-            return me2.blocksSold.call();
-        }).then(function(blcks) {
-            blocksSold_before = blcks.toNumber();
-            return me2.incrementBlocksSold(0, {from: user_1, gas: 4712388});
-        }).then(function(tx) {
-            return me2.incrementBlocksSold(increment_by, {from: user_1, gas: 4712388});
-        }).then(function(tx) {
-            return me2.blocksSold.call();
-        }).then(function(blcks) {
-            blocksSold_after = blcks.toNumber();
-
-            incremented_by = blocksSold_after - blocksSold_before
-            assert.equal(incremented_by, increment_by, "blocksSold wasn't incremented correctly");
-        });
-    });
-  });
+    assert.equal(seller_bal_after.toNumber() - seller_bal_before.toNumber(), 1000, 
+        "seller_bal didn't increment right");
+    assert.equal(buyer_bal_after.toNumber() - buyer_bal_before.toNumber(), 0,
+        "buyer_bal changed");
+    assert.equal(blocks_sold_after - blocks_sold_before, 9,    
+        "blocksSold didn't increment by 9 (incrementBlocksSold)")
+    assert.equal(block_5_3_owner, buyer,                       
+        "the block 5x3 owner wasn't set correctly");
+  })
 
 
-  it("should pay contact owner and charity (payOwnerAndCharity, private in production)", function() {
+  it("should let stop selling blocks", async () => {
+    const me2 = await MillionEther.deployed();
+    const me2storage = await MEStorage.deployed();
 
-    var owner_bal_before;
-    var char_bal_before;
-    var owner_bal_1;
-    var char_bal_1;
-    var owner_bal_2;
-    var char_bal_2;
-    var amount_1 = web3.toWei(1, 'ether');
-    var amount_2 = web3.toWei(10, 'ether');
-    var owner_to_recieve_2 = web3.toWei(9, 'ether');
-    var border = 1000;  // number of blocks
+    const seller = user_2;
+    const buyer = user_1;
 
-    return MillionEther.deployed().then(function(instance) {
-        me2 = instance;
-        return MEStorage.deployed().then(function(instance) {
-            me2storage = instance;
-            //initial conditions
-            return me2.balances.call(owner);
-        }).then(function(bal) {
-            owner_bal_before = bal.toNumber();
-            return me2.balances.call(charityAddress);
-        }).then(function(bal) {
-            
-            char_bal_before = bal.toNumber();
-            return me2.blocksSold.call();
-        }).then(function(blcks) {
-            //1st round
-            increment_by = border - blcks.toNumber() - 1;  // to make it 999
-            return me2.incrementBlocksSold(increment_by, {from: user_1, gas: 4712388});
-        }).then(function(tx) {
-            return me2.payOwnerAndCharity(amount_1);
-        }).then(function(tx) {
-            return me2.balances.call(owner);
-        }).then(function(bal) {
-            owner_bal_1 = bal.toNumber();
-            return me2.balances.call(charityAddress);
-        }).then(function(bal) {
-            char_bal_1 = bal.toNumber();        
-            //2nd round
-            increment_by = 1;  // to make it 999
-            return me2.incrementBlocksSold(increment_by, {from: user_1, gas: 4712388});
-        }).then(function(tx) {
-            return me2.payOwnerAndCharity(amount_2);
-        }).then(function(tx) {
-            return me2.balances.call(owner);
-        }).then(function(bal) {
-            owner_bal_2 = bal.toNumber();
-            return me2.balances.call(charityAddress);
-        }).then(function(bal) {
-            char_bal_2 = bal.toNumber();
+    // mark 6x3 not for sale
+    var tx = await me2.sellArea(6, 3, 6, 3, 0, {from: seller, gas: 4712388});
+    var error = "";
+    try {
+        const tx = await me2.buyArea(6, 3, 6, 3, {from: buyer, value: web3.toWei(1900, 'wei'), gas: 4712388});
+    } catch (err) {
+        error = err
+    }
+    const block_6_3_owner = await me2storage.getBlockOwner.call(6, 3);
 
-            owner_recieved_1 = owner_bal_1 - owner_bal_before;
-            charity_recieved_1 = char_bal_1 - char_bal_before;
-            owner_recieved_2 = owner_bal_2 - owner_bal_1;
-            charity_recieved_2 = char_bal_2 - char_bal_1;
-            assert.equal(owner_recieved_1, amount_1, "owner didn't recieve full amount durinng round 1");
-            assert.equal(charity_recieved_1, 0, "charity recieve something durinng round 1");
-            assert.equal(owner_recieved_2, owner_to_recieve_2, "owner didn't recieve 90% durinng round 2");
-            assert.equal(charity_recieved_2, amount_2 - owner_to_recieve_2, "charity didn't recieve 10% durinng round 2");
-        });
-    });
-  });
-
-  it("should pay blockPrice to blockOwner (payBlockOwner, private in production)", function() {
-    
-    var block_owner = user_1;
-    var zero_address = "0x0000000000000000000000000000000000000000";
-    var amount = web3.toWei(10, 'ether');
-    var owner_to_recieve = web3.toWei(9, 'ether');
-
-    return MillionEther.deployed().then(function(instance) {
-        me2 = instance;
-        return MEStorage.deployed().then(function(instance) {
-            me2storage = instance;
-            // initial state
-            return me2.balances.call(owner);
-        }).then(function(bal) {
-            contract_owner_bal_before = bal.toNumber();
-            return me2.balances.call(block_owner);
-        }).then(function(bal) {
-            block_owner_bal_before = bal.toNumber();
-            return me2.balances.call(charityAddress);
-        }).then(function(bal) {
-            char_bal_before = bal.toNumber();
-            return me2.blocksSold.call();
-        }).then(function(blcks) {
-            // round 1
-            return me2.payBlockOwner(block_owner, amount, {from: user_1, gas: 4712388});
-        }).then(function(tx) {
-            return me2.balances.call(block_owner);
-        }).then(function(bal) {
-            block_owner_bal_after = bal.toNumber();
-            // round 2
-            return me2.payBlockOwner(zero_address, amount, {from: user_1, gas: 4712388});
-        }).then(function(tx) {
-            return me2.balances.call(owner);
-        }).then(function(bal) {
-            contract_owner_bal_after = bal.toNumber();
-            return me2.balances.call(charityAddress);
-        }).then(function(bal) {
-            char_bal_after = bal.toNumber();
-
-            block_owner_recieved = block_owner_bal_after - block_owner_bal_before;
-            contract_owner_recieved = contract_owner_bal_after - contract_owner_bal_before;
-            char_recieved = char_bal_after - char_bal_before;
-            assert.equal(block_owner_recieved, amount, "block_owner didn't recieve correct amount");
-            assert.equal(contract_owner_recieved, owner_to_recieve, "contract_owner didn't recieve correct amount");
-            assert.equal(char_recieved, amount - owner_to_recieve, "charity didn't recieve correct amount");
-        });
-    });
-  });
-
-  it("should set new block owner 2 (setNewBlockOwner, private in production)", function() {
-
-    var xy = 51;
-    var buer_1 = user_1;
-    var buer_2 = user_2;
-    var block_owner_1;
-    var block_owner_2;
-    var blocksSold_init;
-    var blocksSold_1st_buy;
-    var blocksSold_2nd_buy;
-
-    return MillionEther.deployed().then(function(instance) {
-        me2 = instance;
-        return MEStorage.deployed().then(function(instance) {
-            me2storage = instance;
-            return me2.setNewBlockOwner(xy, xy, buer_1, {from: buer_1, gas: 4712388});
-        }).then(function(tx) {
-            logGas(tx, "setNewBlockOwner");
-            return me2storage.blocks.call(xy, xy);
-        }).then(function(blockInfo) {
-            block_owner_1 = blockInfo[0];
-        //     return me2.blocksSold.call();
-        // }).then(function(blocksSold) {
-        //     blocksSold_1st_buy = blocksSold.toNumber();
-
-            //new owner for the same block
-            return me2.setNewBlockOwner(xy, xy, buer_2, {from: buer_2, gas: 4712388});
-        }).then(function(tx) {
-            logGas(tx, "resetNewBlockOwner");
-            return me2storage.blocks.call(xy, xy);
-        }).then(function(blockInfo) {
-            block_owner_2 = blockInfo[0];
-        //     return me2.blocksSold.call();
-        // }).then(function(blocksSold) {
-        //     blocksSold_2nd_buy = blocksSold.toNumber();
-
-            //assert.equal(blocksSold_1st_buy - blocksSold_init, 1, "the blocksSold didn't increment");
-            assert.equal(block_owner_1, buer_1, "the block owner wasn't set");
-            // assert.equal(blocksSold_1st_buy - blocksSold_2nd_buy, 0, "the blocksSold incremented when buying from owner");
-            assert.equal(block_owner_2, buer_2, "the block owner wasn't reset");
-        });
-    });
-  });
+    assert.equal(error.message.substring(43,49), "revert", 
+        "allowed selling crowdsale block!");
+    assert.equal(block_6_3_owner, seller,                       
+        "the block 6x3 owner wasn't set correctly");
+  })
 
 
-
-
-
-
-
-
-
-  it("should let buy blocks", function() {
-
-    var buer_1 = user_1;
-    var block_owner_1_1;
-    var block_owner_2_2;
-
-    return MillionEther.deployed().then(function(instance) {
-        me2 = instance;
-        return MEStorage.deployed().then(function(instance) {
-            me2storage = instance;
-            return me2storage.blocks.call(1, 1);
-        }).then(function(blockInfo) {
-             return me2.buyArea(1, 1, 8, 9, {from: buer_1, value: web3.toWei(1, 'ether'), gas: 4712388});
-        }).then(function(tx) {
-            logGas(tx, "buyArea");
-            return me2storage.blocks.call(1, 1);
-        }).then(function(blockInfo) {
-            block_owner_1_1 = blockInfo[0];
-            return me2storage.blocks.call(2, 2);
-        }).then(function(blockInfo) {
-            block_owner_2_2 = blockInfo[0];
-
-            assert.equal(block_owner_1_1, buer_1, "the block 1x1 owner wasn't set");
-            assert.equal(block_owner_2_2, buer_1, "the block 2x2 owner wasn't set");
-        });
-    });
-  });
-  
-  // TODO set sell price to zero (not for sale)
   // TODO try mul with mul(322, 0) or mul(0, 322)
 
   //  function placeImage (uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, string imageSourceUrl, string adUrl, string adText) 
 
   it("should let place image", function() {
 
-    var buer_1 = user_1;
+    var buyer_1 = user_1;
     var image_id_before;
     var image_id_after;
     
@@ -487,7 +233,7 @@ contract('MillionEther', function(accounts) {
             return me2.numImages.call();
         }).then(function(id) {
             image_id_before = id.toNumber();
-            return me2.placeImage(1, 1, 8, 9, "sadf","sfa","asdgbb", {from: buer_1, gas: 4712388});
+            return me2.placeImage(1, 1, 8, 9, "sadf","sfa","asdgbb", {from: buyer_1, gas: 4712388});
         }).then(function(tx) {
             logGas(tx, "placeImage");
             return me2.numImages.call();
@@ -500,35 +246,3 @@ contract('MillionEther', function(accounts) {
   });
 
 });
-
-
-/*
-  it("should calculate block ID", function() {
-
-    var block_ID_1_1;
-    var block_ID_1_2;
-    var block_ID_100_1;
-    var block_ID_100_100;
-
-    return MillionEther.deployed().then(function(instance) {
-        me2 = instance;
-        return me2.getBlockID.call(1, 1);
-    }).then(function(block_ID) {
-        block_ID_1_1 = block_ID.toNumber();
-        return me2.getBlockID.call(1, 2);
-    }).then(function(block_ID) {
-        block_ID_1_2 = block_ID.toNumber();
-        return me2.getBlockID.call(100, 1);
-    }).then(function(block_ID) {
-        block_ID_100_1 = block_ID.toNumber();
-        return me2.getBlockID.call(100, 100);
-    }).then(function(block_ID) {
-        block_ID_100_100 = block_ID.toNumber();
-
-        assert.equal(block_ID_1_1, 1, "The ID for block 1x1 wasn't calculated correctly");
-        assert.equal(block_ID_1_2, 101, "The ID for block 1x2 wasn't calculated correctly");
-        assert.equal(block_ID_100_1, 100, "The ID for block 100x1 wasn't calculated correctly");
-        assert.equal(block_ID_100_100, 10000, "The ID for block 100x100 wasn't calculated correctly");
-    });
-  });
-*/

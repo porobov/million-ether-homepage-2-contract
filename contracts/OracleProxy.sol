@@ -7,7 +7,7 @@ contract OracleProxy is Destructible, Storage {
     uint public oneCentInWei;
 
     function OracleProxy() {
-        oneCentInWei = 1;  // TODO remove after debug
+        oneCentInWei = 1 wei;  // TODO remove after debug
     }
     
     function getOneCentInWei() external view returns (uint) {

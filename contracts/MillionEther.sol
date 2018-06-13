@@ -100,11 +100,6 @@ contract MillionEther is Ownable, DSMath, Destructible {
 
  // ** PAYMENT PROCESSING ** //
 
-    // doubles price every 1000 blocks sold
-    //production: function crowdsalePriceUSD(uint16 _blocksSold) private pure returns (uint16) {
-    function crowdsalePriceUSD(uint16 _blocksSold) public pure returns (uint16) {
-        return uint16(1 * (2 ** (_blocksSold / 1000)));  // check overflow?
-    }
 
     //production: function depositTo(address _recipient, uint _amount) private {
     function depositTo(address _recipient, uint _amount) public {
@@ -140,7 +135,14 @@ contract MillionEther is Ownable, DSMath, Destructible {
 
  // ** BUY AND SELL BLOCKS ** //
 
-    function getBlockPriceAndOwner(uint8 _x, uint8 _y, uint16 _iBlocksSold) public view returns (uint, address) {
+    // doubles price every 1000 blocks sold
+    //production: function crowdsalePriceUSD(uint16 _blocksSold) private pure returns (uint16) {
+    function crowdsalePriceUSD(uint16 _blocksSold) public pure returns (uint16) {
+        return uint16(1 * (2 ** (_blocksSold / 1000)));  // check overflow?
+    }
+
+    // TODO private?? 
+    function getBlockPriceAndOwner(uint8 _x, uint8 _y, uint16 _iBlocksSold) private view returns (uint, address) {
         if (strg.getBlockOwner(_x, _y) == address(0x0)) { 
             // when buying at initial sale price doubles every 1000 blocks sold
             return (mul(mul(usd.getOneCentInWei(), crowdsalePriceUSD(_iBlocksSold)), 100), address(0x0));
@@ -275,6 +277,7 @@ contract MillionEther is Ownable, DSMath, Destructible {
     }
 
     function getAreaPrice(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY) external view returns (uint) {
+        requireLegalCoordinates(fromX, fromY, toX, toY);
         uint totalPrice = 0;
         uint blockPrice;
         address blockOwner;
