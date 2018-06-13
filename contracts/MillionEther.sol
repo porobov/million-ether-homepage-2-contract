@@ -56,7 +56,7 @@ contract MillionEther is Ownable, DSMath, Destructible {
 
 // ** INITIALIZE ** //
 
-    function MillionEther (address _strgAddr, address _oldMillionEtherAddr, address _oracleProxyAddr, address _bansAddr) public {
+    function MillionEther (address _strgAddr, address _oldMillionEtherAddr, address _oracleProxyAddr) public {
         oldMillionEther = OldeMillionEther(_oldMillionEtherAddr);
         
         strg = OwnershipLedger(_strgAddr);
@@ -244,7 +244,6 @@ contract MillionEther is Ownable, DSMath, Destructible {
     function placeImage(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, string imageSourceUrl, string adUrl, string adText) 
         external
         payable
-        noBannedUsers
         returns (uint)
     {   
         requireLegalCoordinates(fromX, fromY, toX, toY);
