@@ -15,8 +15,25 @@ contract OwnershipLedger is ERC721Token("MillionEtherHomePage","MEH"), Storage {
     }
     Block[101][101] public blocks; 
 
+    mapping(uint16 => uint) public blockPrices;
 
     // SETTERS
+    function _setMEHApprovalForAll(address _landlord) internal {
+        // client == MEH
+        if (!(isApprovedForAll(_landlord, client))) {
+            require(_landlord != msg.sender);
+            // require(msg.sender == client);
+            operatorApprovals[_landlord][client] = true;
+            emit ApprovalForAll(_landlord, client, true);
+        }
+    }
+
+    function mint(address to, uint256 tokenId) public onlyClient {
+        if (totalSupply() <= 9999) {
+        _mint(to, tokenId);
+        _setMEHApprovalForAll(to);
+        }
+    }
 
     function setBlockOwner(uint8 _x, uint8 _y, address _newOwner) external onlyClient returns (bool) {
         blocks[_x][_y].landlord = _newOwner;
@@ -28,7 +45,15 @@ contract OwnershipLedger is ERC721Token("MillionEtherHomePage","MEH"), Storage {
         return true;
     }
 
+    function setPrice(uint16 _id, uint _sellPrince) external onlyClient {
+        blockPrices[_id] = _sellPrince;
+    }
+
     // GETTERS
+
+    function getPrice(uint16 _id) external view returns (uint) {
+        return blockPrices[_id];
+    }
 
     function getBlockOwner(uint8 _x, uint8 _y) external view returns (address) {
         return blocks[_x][_y].landlord;
@@ -37,8 +62,4 @@ contract OwnershipLedger is ERC721Token("MillionEtherHomePage","MEH"), Storage {
     function getSellPrice(uint8 _x, uint8 _y) external view returns (uint) {
         return blocks[_x][_y].sellPrice;
     } 
-
-    // function getBlockID (uint8 _x, uint8 _y) public pure returns (uint16) {
-    //     return (uint16(_y) - 1) * 100 + uint16(_x);
-    // }
 }

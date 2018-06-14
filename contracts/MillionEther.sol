@@ -125,6 +125,84 @@ contract MillionEther is Ownable, DSMath, Destructible {
 
  // ** BUY AND SELL BLOCKS ** //
 
+    function getBlockID (uint8 _x, uint8 _y) public pure returns (uint16) {
+        return (uint16(_y) - 1) * 100 + uint16(_x);
+    }
+
+    function transferCrowdsaleBlock(uint16 _blockID) public { // internal
+        strg.mint(msg.sender, _blockID);
+    }
+
+    function transferBlockOwnership(uint16 _blockID, address from, address to) public { // internal
+        strg.safeTransferFrom(from, to, _blockID);
+    }
+
+    function getCrowdsalePrice() internal returns (uint) {
+        return mul(mul(usd.getOneCentInWei(), crowdsalePriceUSD(uint16(strg.totalSupply()))), 100);
+    }
+
+    function getBlockSellPrice(uint16 _blockID) internal returns (uint) {
+        return (mul(usd.getOneCentInWei(), strg.getPrice(_blockID)));
+    }
+
+    function getBlockOwner(uint16 _blockID) internal returns (address) {
+        if (strg.exists(_blockID)) {
+            return strg.ownerOf(_blockID);
+        }
+        return address(0);
+    }
+
+    function buyERCBlock(uint16 _blockID)
+        internal
+    {
+        address blockOwner = getBlockOwner(_blockID);
+
+        uint blockPrice;
+        // buying at crowdsale:
+        if (blockOwner == address(0)) {        
+            blockPrice = getCrowdsalePrice();
+            deductFrom(msg.sender, blockPrice);
+            transferCrowdsaleBlock(_blockID);
+            depositToAdminAndCharity(blockPrice);//  pay contract owner and charity
+            return;                            //  report one block bought at crowdsale
+        }
+
+        // buying from current landlord:
+        blockPrice = getBlockSellPrice(_blockID);
+        if (blockPrice > 0 && blockOwner != address(0)) {
+            deductFrom(msg.sender, blockPrice);
+            strg.setPrice(_blockID, 0);          //  reset sell price
+            depositTo(blockOwner, blockPrice);   //  pay block owner
+            return;                            //  report zero blocks bought at crowdsale
+        }
+        revert();
+    }
+
+    function buyERCArea(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY) 
+        external
+        payable
+    {   
+        requireLegalCoordinates(fromX, fromY, toX, toY);
+        depositTo(msg.sender, msg.value);
+
+        for (uint8 ix=fromX; ix<=toX; ix++) {
+            for (uint8 iy=fromY; iy<=toY; iy++) {
+                buyERCBlock(getBlockID(ix, iy));
+            }
+        }
+        // numOwnershipStatuses++;
+        // emit LogOwnership(numOwnershipStatuses, fromX, fromY, toX, toY, msg.sender, 0);
+    }
+
+
+
+
+
+
+
+
+
+
     // doubles price every 1000 blocks sold
     //production: function crowdsalePriceUSD(uint16 _blocksSold) private pure returns (uint16) {
     function crowdsalePriceUSD(uint16 _blocksSold) public pure returns (uint16) {

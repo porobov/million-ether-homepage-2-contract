@@ -57,6 +57,29 @@ $1 - 0
         "the block 1x1 owner wasn't set");
   })
 
+
+  it("should let buy erc blocks", async () => {
+    const me2 = await MillionEther.deployed();
+    const me2storage = await MEStorage.deployed();
+
+    const buyer = user_1;
+    const admin_bal_before = await me2.balances.call(admin);
+    const charity_bal_berore = await me2.balances.call(charityAddress);
+
+    tx = await me2.buyERCArea(15, 15, 20, 15, {from: buyer, value: web3.toWei(600, 'wei'), gas: 4712388});
+    logGas(tx, "buyArea (one block");
+
+    const admin_bal_after = await me2.balances.call(admin);
+    const charity_bal_after = await me2.balances.call(charityAddress);
+
+    assert .equal(admin_bal_after.toNumber() - admin_bal_before.toNumber(), web3.toWei(120, 'wei'), 
+        "admin balance didn't increase right");
+    assert .equal(charity_bal_after.toNumber() - charity_bal_berore.toNumber(), web3.toWei(480, 'wei'),    
+        "charity balance didn't increase right");   
+  })
+
+
+
 /*
 # Много блоков
 $1 - 1
