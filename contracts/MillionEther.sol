@@ -171,6 +171,7 @@ contract MillionEther is Ownable, DSMath, Destructible {
         blockPrice = getBlockSellPrice(_blockID);
         if (blockPrice > 0 && blockOwner != address(0)) {
             deductFrom(msg.sender, blockPrice);
+            transferBlockOwnership(_blockID, blockOwner, msg.sender);
             strg.setPrice(_blockID, 0);          //  reset sell price
             depositTo(blockOwner, blockPrice);   //  pay block owner
             return;                            //  report zero blocks bought at crowdsale
@@ -361,6 +362,12 @@ contract MillionEther is Ownable, DSMath, Destructible {
     }
 
 // ** SETTINGS ** //
+
+    function setNewAddress(address _v2Address) external onlyCEO whenPaused {
+        // See README.md for updgrade plan
+        newContractAddress = _v2Address;
+        ContractUpgrade(_v2Address);
+    }
 
     // transfer charity to an address (internally)
     function adminTransferCharity(address charityAddress, uint amount, string reason) external onlyOwner {

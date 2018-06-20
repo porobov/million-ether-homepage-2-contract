@@ -4,6 +4,8 @@ import "./Storage.sol";
 
 contract OracleProxy is Destructible, Storage {
     
+    bool public isOracleProxy = true;
+
     uint public oneCentInWei;
 
     function OracleProxy() {
