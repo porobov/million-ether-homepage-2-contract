@@ -1,7 +1,7 @@
 // var MEStorage = artifacts.require("./OwnershipLedger.sol");
 // var OldeMillionEther = artifacts.require("./OldeMillionEther.sol");
 var MillionEther = artifacts.require("./MEH.sol");
-
+var Market = artifacts.require("./Market.sol");
 
 contract('MillionEther', function(accounts) {
 
@@ -191,12 +191,13 @@ $1 - 1
     const blocks_sold_before = await me2.totalSupply.call();
 
     var tx = await me2.sellArea(1, 3, 6, 3, 200, {from: seller, gas: 4712388});
+    logGas(tx, "sellArea (5 blocks a landlord");
     // selling and buying from theirown
     //tx = await me2.sellArea(1, 1, 1, 1, 100, {from: buyer, gas: 4712388});
     // buy 15 blocks, including her own one, 5 from other landlord, leave block 6x3 on sale
     //tx = await me2.buyArea(1, 1, 5, 3, {from: buyer, value: web3.toWei(1900, 'wei'), gas: 4712388});
     tx = await me2.buyArea(1, 3, 5, 3, {from: buyer, value: web3.toWei(1900, 'wei'), gas: 4712388});
-    logGas(tx, "buyArea (6 blocks a landlord");
+    logGas(tx, "buyArea (5 blocks a landlord");
 
     const seller_bal_after = await me2.balances.call(seller);
     const buyer_bal_after = await me2.balances.call(buyer);
@@ -253,6 +254,20 @@ $1 - 1
   })
 
 
+  it("should import old block", async () => {
+    const me2 = await MillionEther.deployed();
+    const market = await Market.deployed();
+
+    const oldOwner = "0xca9f7d9ad4127e374cdab4bd0a884790c1b03946";
+
+    var tx = await market.adminImportOldMEBlock(19, 19, {from: admin, gas: 4712388});
+
+    const first_block_owner = await me2.getBlockOwner.call(19, 19);
+
+    assert.equal(first_block_owner, oldOwner,                       
+        "first_block owner wasn't set correctly");
+
+    })
   // TODO try mul with mul(322, 0) or mul(0, 322)
 
   //  function placeImage (uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, string imageSourceUrl, string adUrl, string adText) 

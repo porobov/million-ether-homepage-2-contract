@@ -21,9 +21,9 @@ import "../installed_contracts/math.sol";
 import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
 import "openzeppelin-solidity/contracts/ownership/HasNoEther.sol";
 import "openzeppelin-solidity/contracts/lifecycle/Destructible.sol";  // production is immortal
-import "./OldeMillionEther.sol";
 import "./MEH.sol";
-import "../test/OracleProxy.sol";
+import "../test/mockups/OracleProxy.sol";
+import "../test/mockups/OldeMillionEther.sol";
 
 contract Market is Ownable, Destructible, HasNoEther, DSMath {
 
@@ -41,8 +41,9 @@ contract Market is Ownable, Destructible, HasNoEther, DSMath {
 
     // Blocks
     struct PriceTag {
-        address seller;    // block landlord becomes seller
         uint sellPrice;    // price if willing to sell, 0 if not
+        address seller;    // block landlord becomes seller
+        
     }
 
     // Map from block ID to their corresponding price tag.
@@ -62,7 +63,7 @@ contract Market is Ownable, Destructible, HasNoEther, DSMath {
 
 // ** INITIALIZE ** //
 
-    function Market(address _mehAddress, address _oldMehAddress, address _oracleProxyAddress) public {
+    constructor(address _mehAddress, address _oldMehAddress, address _oracleProxyAddress) public {
         oldMillionEther = OldeMillionEther(_oldMehAddress);
         // TODO some test on OldeMillionEther
         adminSetMeh(_mehAddress);
@@ -104,21 +105,21 @@ contract Market is Ownable, Destructible, HasNoEther, DSMath {
         return;
     }
 
-    function _ownerOf(uint16 _blockId) internal returns (address) {
+    function _ownerOf(uint16 _blockId) internal view returns (address) {
         return meh._ownerOf(_blockId);
     }
 
     // doubles price every 1000 blocks sold
     function crowdsalePriceUSD(uint16 _blocksSold) internal pure returns (uint16) {
-        return uint16(1 * (2 ** (_blocksSold / 1000)));  // check overflow?
+        return uint16(2 ** (_blocksSold / 1000));  // check overflow?
     }
 
-    function crowdsalePriceWei() internal returns (uint) {
+    function crowdsalePriceWei() internal view returns (uint) {
         return mul(mul(usd.oneCentInWei(), crowdsalePriceUSD(uint16(meh.totalSupply()))), 100);
     }
 
     // TODO remove dollars
-    function getBlockSellPrice(uint16 _blockId) internal returns (uint) {
+    function getBlockSellPrice(uint16 _blockId) internal view returns (uint) {
         return (mul(usd.oneCentInWei(), priceTags[_blockId].sellPrice));
     }
 
@@ -202,6 +203,18 @@ contract Market is Ownable, Destructible, HasNoEther, DSMath {
         usd = candidateContract;
         // emit ContractUpgrade(_v2Address);
         emit LogNewOracleProxy(_address);
+    }
+
+    // import old contract blocks
+    function adminImportOldMEBlock(uint8 x, uint8 y) public onlyOwner {
+        uint16 blockId = meh.getBlockID(x, y);
+        require(_ownerOf(blockId) == address(0));
+        (address oldLandlord, uint i, uint s) = oldMillionEther.getBlockInfo(x, y);  // WARN! sell price s is in wei
+        require(oldLandlord != address(0));
+        _mintCrowdsaleBlock(oldLandlord, blockId);
+
+        // numOwnershipStatuses++;
+        // emit LogOwnership(numOwnershipStatuses, x, y, x, y, landlord, 0);
     }
 
     // Emergency

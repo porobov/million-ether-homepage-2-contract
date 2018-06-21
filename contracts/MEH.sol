@@ -34,7 +34,7 @@ contract MEH is ERC721Token("MillionEtherHomePage","MEH"), Ownable, DSMath  {
 
 // ERC721 
     
-    function _ownerOf(uint16 _blockId) public returns (address) {
+    function _ownerOf(uint16 _blockId) public view returns (address) {
         if (exists(_blockId)) {
             return ownerOf(_blockId);
         }
@@ -42,11 +42,12 @@ contract MEH is ERC721Token("MillionEtherHomePage","MEH"), Ownable, DSMath  {
     }
 
     // TODO check for overflow 
+    // TODO set modifier to guard >100, <0 etc.
     function getBlockID(uint8 _x, uint8 _y) public pure returns (uint16) {
         return (uint16(_y) - 1) * 100 + uint16(_x);
     }
 
-    function getBlockOwner(uint8 x, uint8 y) external returns (address) {
+    function getBlockOwner(uint8 x, uint8 y) external view returns (address) {
         return _ownerOf(getBlockID(x, y));
     }
 
