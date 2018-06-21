@@ -23,7 +23,7 @@ import "openzeppelin-solidity/contracts/ownership/HasNoEther.sol";
 import "openzeppelin-solidity/contracts/lifecycle/Destructible.sol";  // production is immortal
 import "./OldeMillionEther.sol";
 import "./MEH.sol";
-import "./OracleProxy.sol";
+import "../test/OracleProxy.sol";
 
 contract Market is Ownable, Destructible, HasNoEther, DSMath {
 
@@ -101,6 +101,7 @@ contract Market is Ownable, Destructible, HasNoEther, DSMath {
 
     function _transferTo(address _to, uint16 _blockId) internal {
         meh.safeTransferFrom(address(this), _to, _blockId);
+        return;
     }
 
     function _ownerOf(uint16 _blockId) internal returns (address) {
@@ -113,12 +114,12 @@ contract Market is Ownable, Destructible, HasNoEther, DSMath {
     }
 
     function crowdsalePriceWei() internal returns (uint) {
-        return mul(mul(usd.getOneCentInWei(), crowdsalePriceUSD(uint16(meh.totalSupply()))), 100);
+        return mul(mul(usd.oneCentInWei(), crowdsalePriceUSD(uint16(meh.totalSupply()))), 100);
     }
 
     // TODO remove dollars
     function getBlockSellPrice(uint16 _blockId) internal returns (uint) {
-        return (mul(usd.getOneCentInWei(), priceTags[_blockId].sellPrice));
+        return (mul(usd.oneCentInWei(), priceTags[_blockId].sellPrice));
     }
 
     function _removePriceTag(uint16 _blockId) internal {
@@ -140,13 +141,15 @@ contract Market is Ownable, Destructible, HasNoEther, DSMath {
             return;                              //  report one block bought at crowdsale
         }
 
-        // buying from current landlord:
+        // buying from seller:
         blockPrice = getBlockSellPrice(_blockId);
-        if (blockPrice > 0 && blockOwner != address(0)) {
+        if (blockPrice > 0 && blockOwner == address(this)) {
+            // require(seller != address(0));
+            address seller = priceTags[_blockId].seller;
             meh._deductFrom(_buyer, blockPrice);
             _transferTo(_buyer, _blockId);
             _removePriceTag(_blockId);
-            meh._depositTo(blockOwner, blockPrice);   //  pay block owner
+            meh._depositTo(seller, blockPrice);   //  pay seller
             return;                            //  report zero blocks bought at crowdsale
         }
         revert();  // revert when no conditions are met

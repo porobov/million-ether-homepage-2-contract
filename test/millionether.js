@@ -195,46 +195,60 @@ $1 - 1
     //tx = await me2.sellArea(1, 1, 1, 1, 100, {from: buyer, gas: 4712388});
     // buy 15 blocks, including her own one, 5 from other landlord, leave block 6x3 on sale
     //tx = await me2.buyArea(1, 1, 5, 3, {from: buyer, value: web3.toWei(1900, 'wei'), gas: 4712388});
-    tx = await me2.buyArea(1, 3, 6, 3, {from: buyer, value: web3.toWei(1900, 'wei'), gas: 4712388});
-    logGas(tx, "buyArea (15 blocks, 6 from a landlord");
+    tx = await me2.buyArea(1, 3, 5, 3, {from: buyer, value: web3.toWei(1900, 'wei'), gas: 4712388});
+    logGas(tx, "buyArea (6 blocks a landlord");
 
     const seller_bal_after = await me2.balances.call(seller);
     const buyer_bal_after = await me2.balances.call(buyer);
     const blocks_sold_after = await me2.totalSupply.call();
-    const block_5_3_owner = await me2.getBlockOwner.call(5, 3);
+    const first_block_owner = await me2.getBlockOwner.call(1, 3);
+    const last_block_owner = await me2.getBlockOwner.call(5, 3);
     
 
     assert.equal(seller_bal_after.toNumber() - seller_bal_before.toNumber(), 1000, 
         "seller_bal didn't increment right");
-    assert.equal(buyer_bal_after.toNumber() - buyer_bal_before.toNumber(), 0,
+    assert.equal(buyer_bal_after.toNumber() - buyer_bal_before.toNumber(), 900,
         "buyer_bal changed");
-    assert.equal(blocks_sold_after - blocks_sold_before, 9,    
-        "totalSupply didn't increment by 9 (incrementBlocksSold)")
-    assert.equal(block_5_3_owner, buyer,                       
-        "the block 5x3 owner wasn't set correctly");
+    assert.equal(blocks_sold_after - blocks_sold_before, 0,    
+        "totalSupply didn't increment by 0 (incrementBlocksSold)");
+    assert.equal(first_block_owner, buyer,                       
+        "first block owner wasn't set correctly");
+    assert.equal(last_block_owner, buyer,                       
+        "last block owner wasn't set correctly");
   })
 
 
   it("should let stop selling blocks", async () => {
     const me2 = await MillionEther.deployed();
-    // const me2storage = await MEStorage.deployed();
+    const seller = user_2;
+
+    // mark 6x3 not for sale
+    var tx = await me2.sellArea(6, 3, 6, 3, 0, {from: seller, gas: 4712388});
+
+    const first_block_owner = await me2.getBlockOwner.call(6, 3);
+
+    assert.equal(first_block_owner, seller,                       
+        "first block owner wasn't set correctly");
+    })
+
+
+  it("should permit buying block removed from sale", async () => {
+    const me2 = await MillionEther.deployed();
 
     const seller = user_2;
     const buyer = user_1;
 
-    // mark 6x3 not for sale
-    var tx = await me2.sellArea(6, 3, 6, 3, 0, {from: seller, gas: 4712388});
     var error = "";
     try {
         const tx = await me2.buyArea(6, 3, 6, 3, {from: buyer, value: web3.toWei(1900, 'wei'), gas: 4712388});
     } catch (err) {
         error = err
     }
-    const block_6_3_owner = await me2.getBlockOwner.call(6, 3);
+    const first_block_owner = await me2.getBlockOwner.call(6, 3);
 
     assert.equal(error.message.substring(43,49), "revert", 
         "allowed selling crowdsale block!");
-    assert.equal(block_6_3_owner, seller,                       
+    assert.equal(first_block_owner, seller,                       
         "the block 6x3 owner wasn't set correctly");
   })
 
