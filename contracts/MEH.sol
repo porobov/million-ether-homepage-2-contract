@@ -1,19 +1,18 @@
 pragma solidity ^0.4.18;
 
+import "../installed_contracts/math.sol";
 import "./Market.sol";
 import "openzeppelin-solidity/contracts/token/ERC721/ERC721.sol";
 import "openzeppelin-solidity/contracts/token/ERC721/ERC721Basic.sol";
 import "openzeppelin-solidity/contracts/token/ERC721/ERC721Token.sol";
 
-contract MEH is ERC721Token("MillionEtherHomePage","MEH"), Ownable, Destructible  {
+contract MEH is ERC721Token("MillionEtherHomePage","MEH"), Ownable, DSMath  {
 
     bool public isMEH = true;
-    Market market;  
+    Market market;
 
     // Accounting
     mapping(address => uint) public balances;
-    address public constant charityVault = 0x616c6C20796F75206e656564206973206C6f7665; // "all you need is love" in hex format. Insures nobody has access to it. Used for internal acounting only. 
-    uint public charityPayed = 0;
 
     // Counters
     uint public numOwnershipStatuses = 0;
@@ -29,23 +28,38 @@ contract MEH is ERC721Token("MillionEtherHomePage","MEH"), Ownable, Destructible
     }
 
     modifier onlyMarket() {
-        require(msg.sender == market);
+        require(msg.sender == address(market));
         _;
     }
 
 // ERC721 
+    
+    function _ownerOf(uint16 _blockId) public returns (address) {
+        if (exists(_blockId)) {
+            return ownerOf(_blockId);
+        }
+        return address(0);
+    }
 
-    function _setMEHApprovalForAll(address _landlord) internal {
-        if (!(isApprovedForAll(_landlord, market))) {
-            require(_landlord == msg.sender);
-            operatorApprovals[_landlord][market] = true;
-            emit ApprovalForAll(_landlord, market, true);
+    // TODO check for overflow 
+    function getBlockID(uint8 _x, uint8 _y) public pure returns (uint16) {
+        return (uint16(_y) - 1) * 100 + uint16(_x);
+    }
+
+    function getBlockOwner(uint8 x, uint8 y) external returns (address) {
+        return _ownerOf(getBlockID(x, y));
+    }
+
+    /// @dev Set approval (if not set yet) for market contract to transfer all blocks of msg.sender.
+    function _setMEHApprovalForAll() internal {
+        if (!(isApprovedForAll(msg.sender, market))) {
+            setApprovalForAll(market, true);
         }
     }
 
-    function _mint(address _to, uint256 _tokenId) public onlyMarket {
+    function _mintCrowdsaleBlock(address _to, uint16 _blockId) external onlyMarket {
         if (totalSupply() <= 9999) {
-        _mint(_to, _tokenId);
+        _mint(_to, _blockId);
         }
     }
 
@@ -53,12 +67,12 @@ contract MEH is ERC721Token("MillionEtherHomePage","MEH"), Ownable, Destructible
 
 
     //production: function depositTo(address _recipient, uint _amount) private {
-    function _depositTo(address _recipient, uint _amount) public onlyMarket {
+    function _depositTo(address _recipient, uint _amount) public { // TODO onlyMarket
         balances[_recipient] = add(balances[_recipient], _amount);
     }
 
     //production: function deductFrom(address _payer, uint _amount) private {
-    function _deductFrom(address _payer, uint _amount) public onlyMarket {
+    function _deductFrom(address _payer, uint _amount) public {  // TODO onlyMarket
         balances[_payer] = sub(balances[_payer], _amount);
     }
 
@@ -67,7 +81,7 @@ contract MEH is ERC721Token("MillionEtherHomePage","MEH"), Ownable, Destructible
         uint256 payment = balances[payee];
 
         require(payment != 0);
-        require(this.balance >= payment);
+        require(address(this).balance >= payment);
 
         balances[payee] = 0;
 
@@ -76,16 +90,12 @@ contract MEH is ERC721Token("MillionEtherHomePage","MEH"), Ownable, Destructible
 
  // ** BUY AND SELL BLOCKS ** //
 
-    function getBlockID (uint8 _x, uint8 _y) public pure returns (uint16) {
-        return (uint16(_y) - 1) * 100 + uint16(_x);
-    }
-
     function buyArea(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY) 
         external
         payable
     {   
         require(isLegalCoordinates(fromX, fromY, toX, toY));
-        depositTo(msg.sender, msg.value);
+        _depositTo(msg.sender, msg.value);
 
         for (uint8 ix=fromX; ix<=toX; ix++) {
             for (uint8 iy=fromY; iy<=toY; iy++) {
@@ -104,7 +114,7 @@ contract MEH is ERC721Token("MillionEtherHomePage","MEH"), Ownable, Destructible
     {   
         require(isLegalCoordinates(fromX, fromY, toX, toY));
 
-        _setMEHApprovalForAll(msg.sender);
+        _setMEHApprovalForAll();
 
         for (uint8 ix=fromX; ix<=toX; ix++) {
             for (uint8 iy=fromY; iy<=toY; iy++) {
@@ -114,6 +124,8 @@ contract MEH is ERC721Token("MillionEtherHomePage","MEH"), Ownable, Destructible
         // numOwnershipStatuses++;
         // emit LogOwnership(numOwnershipStatuses, fromX, fromY, toX, toY, address(0x0), priceForEachBlockCents);
     }
+
+
 
 
 // ** ADMIN ** //

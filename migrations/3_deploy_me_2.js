@@ -1,15 +1,15 @@
 var OracleProxy = artifacts.require("./OracleProxy.sol");
-var OwnershipLedger = artifacts.require("./OwnershipLedger.sol");
+var MEH = artifacts.require("./MEH.sol");
 var OldeMillionEther = artifacts.require("./OldeMillionEther.sol");
-var MillionEther = artifacts.require("./MillionEther.sol");
+var Market = artifacts.require("./Market.sol");
 
 module.exports = function(deployer) {
-  deployer.deploy(MillionEther, OwnershipLedger.address, OldeMillionEther.address, OracleProxy.address).then(() => {
-    OwnershipLedger.deployed().then(ownershipLedger => {
-        return ownershipLedger.setClient(MillionEther.address);
+  deployer.deploy(Market, MEH.address, OldeMillionEther.address, OracleProxy.address).then(() => {
+    MEH.deployed().then(meh => {
+        return meh.adminSetMarket(Market.address);
     });
     OracleProxy.deployed().then(oracleProxy => {
-        return oracleProxy.setClient(MillionEther.address);
+        return oracleProxy.setClient(Market.address);
     });
   });
 };

@@ -17,21 +17,24 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 pragma solidity ^0.4.18;
 
-//import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
-//import "openzeppelin-solidity/contracts/lifecycle/Destructible.sol";
-//import "../installed_contracts/math.sol";
+import "../installed_contracts/math.sol";
 import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
 import "openzeppelin-solidity/contracts/ownership/HasNoEther.sol";
 import "openzeppelin-solidity/contracts/lifecycle/Destructible.sol";  // production is immortal
 import "./OldeMillionEther.sol";
-import "./OwnershipLedger.sol";
+import "./MEH.sol";
 import "./OracleProxy.sol";
 
-contract Market is Ownable, Destructible, HasNoEther {
+contract Market is Ownable, Destructible, HasNoEther, DSMath {
 
+    
+
+    // Charity
+    address public constant charityVault = 0x616c6C20796F75206e656564206973206C6f7665; // "all you need is love" in hex format. Insures nobody has access to it. Used for internal acounting only. 
+    uint public charityPayed = 0;
+
+    // Contracts
     bool public isMarket = true;
-
-    // External contracts
     OldeMillionEther oldMillionEther;
     MEH  meh;
     OracleProxy usd;
@@ -68,6 +71,10 @@ contract Market is Ownable, Destructible, HasNoEther {
 
 // ** GUARDS ** //
 
+    modifier onlyMeh() {
+        require(msg.sender == address(meh));
+        _;
+    }
 
 // ** PAYMENT PROCESSING ** //
 
@@ -75,71 +82,71 @@ contract Market is Ownable, Destructible, HasNoEther {
     /// @notice Just for admin convinience. 
     ///  Admin is allowed to transfer charity to any account. 
     ///  Function helps to separate personal funds from charity.
-    // production: function depositToAdminAndCharity(uint _amount) private {
     function depositToAdminAndCharity(uint _amount) internal {
         uint goesToCharity = _amount * 80 / 100;  // 80% goes to charity
-        meh.depositTo(charityVault, goesToCharity);
-        meh.depositTo(owner, _amount - goesToCharity);
+        meh._depositTo(charityVault, goesToCharity);
+        meh._depositTo(owner, _amount - goesToCharity);
     }
 
  // ** BUY AND SELL BLOCKS ** //
 
-    function _mintCrowdsaleBlock(address _to, uint16 _blockID) internal {
-        meh.mint(_to, _blockID);
+    function _mintCrowdsaleBlock(address _to, uint16 _blockId) internal {
+        meh._mintCrowdsaleBlock(_to, _blockId);
     }
 
-    function _escrow(uint16 _blockID) internal {
-        meh.transferFrom(_seller, address(this), _blockID);
+    /// @dev Transfer seller's tokens to this contract
+    function _escrow(address _from, uint16 _blockId) internal {
+        meh.transferFrom(_from, address(this), _blockId);
     }
 
-    function _transferTo(uint16 _blockID, address to) internal {
-        meh.safeTransferFrom(address(this), to, _blockID);
+    function _transferTo(address _to, uint16 _blockId) internal {
+        meh.safeTransferFrom(address(this), _to, _blockId);
     }
 
-    function _ownerOf(uint256 _blockID) internal returns (address) {
-        if (meh.exists(_blockID)) {
-            return meh.ownerOf(_blockID);
-        }
-        return address(0);
+    function _ownerOf(uint16 _blockId) internal returns (address) {
+        return meh._ownerOf(_blockId);
     }
 
     // doubles price every 1000 blocks sold
-    //production: function crowdsalePriceUSD(uint16 _blocksSold) private pure returns (uint16) {
-    function crowdsalePrice() internal returns (uint) {
+    function crowdsalePriceUSD(uint16 _blocksSold) internal pure returns (uint16) {
+        return uint16(1 * (2 ** (_blocksSold / 1000)));  // check overflow?
+    }
+
+    function crowdsalePriceWei() internal returns (uint) {
         return mul(mul(usd.getOneCentInWei(), crowdsalePriceUSD(uint16(meh.totalSupply()))), 100);
     }
 
     // TODO remove dollars
-    function getBlockSellPrice(uint256 _blockId) internal returns (uint) {
-        return (mul(usd.getOneCentInWei(), priceTags[_blockID].sellPrice));
+    function getBlockSellPrice(uint16 _blockId) internal returns (uint) {
+        return (mul(usd.getOneCentInWei(), priceTags[_blockId].sellPrice));
     }
 
-    function _removePriceTag(uint256 _blockId) internal {
+    function _removePriceTag(uint16 _blockId) internal {
         delete priceTags[_blockId];
     }
 
-    function buyBlock(uint256 _blockId, address _buyer)
+    function buyBlock(address _buyer, uint16 _blockId)
         external onlyMeh
     {
-        address blockOwner = _ownerOf(_blockID);
+        address blockOwner = _ownerOf(_blockId);
 
         uint blockPrice = 0;
         // buying at crowdsale:
         if (blockOwner == address(0)) {        
-            blockPrice = crowdsalePrice();
-            meh.deductFrom(_buyer, blockPrice);
-            _mintCrowdsaleBlock(_buyer, _blockID);
+            blockPrice = crowdsalePriceWei();
+            meh._deductFrom(_buyer, blockPrice);
+            _mintCrowdsaleBlock(_buyer, _blockId);
             depositToAdminAndCharity(blockPrice);//  pay contract owner and charity
             return;                              //  report one block bought at crowdsale
         }
 
         // buying from current landlord:
-        blockPrice = getBlockSellPrice(_blockID);
+        blockPrice = getBlockSellPrice(_blockId);
         if (blockPrice > 0 && blockOwner != address(0)) {
-            meh.deductFrom(_buyer, blockPrice);
-            _transferTo(_buyer, _blockID);
-            _removePriceTag(_blockID);
-            meh.depositTo(blockOwner, blockPrice);   //  pay block owner
+            meh._deductFrom(_buyer, blockPrice);
+            _transferTo(_buyer, _blockId);
+            _removePriceTag(_blockId);
+            meh._depositTo(blockOwner, blockPrice);   //  pay block owner
             return;                            //  report zero blocks bought at crowdsale
         }
         revert();  // revert when no conditions are met
@@ -148,34 +155,34 @@ contract Market is Ownable, Destructible, HasNoEther {
 
     // nobody has access to block ownership except current landlord
     // function instead of modifier as modifier used too much stack for placeImage
-    function isAuthorizedSeller(address _guy, uint256 _blockID) private view returns (bool) {
-        address blockOwner = _ownerOf(_blockID);
-        address seller = priceTags[_blockID].seller;
+    function isAuthorizedSeller(address _guy, uint16 _blockId) private view returns (bool) {
+        address blockOwner = _ownerOf(_blockId);
+        address seller = priceTags[_blockId].seller;
         return (_guy == blockOwner || _guy == seller);
     }
 
     /// @dev Trnsfer blockId to market, set or update price tag. Return block to seller.
     /// @notice _sellPriceWei = 0 - cancel sale, return blockId to seller
-    function _sellBlock(address _seller, uint _blockID, uint _sellPriceWei) external onlyMeh {
+    function _sellBlock(address _seller, uint16 _blockId, uint _sellPriceWei) external onlyMeh {
         // only owner or seller are allowed to set, update price or cancel
-        require(isAuthorizedSeller(_seller, blockID));
-        address currentOwner = _ownerOf(_blockID);
+        require(isAuthorizedSeller(_seller, _blockId));
+        address currentOwner = _ownerOf(_blockId);
 
         // cancel sale
         if (_sellPriceWei == 0) {
             require(currentOwner != _seller);  // when not yet on sale cannot cancel it
-            _transferTo(_seller, _blockID);
+            _transferTo(_seller, _blockId);
             return;
         }
 
         // if not yet transfered blockId to the market
         if (currentOwner != address(this)) {
-            _escrow(_seller, _blockID);
+            _escrow(_seller, _blockId);
         }
         
         // set price
-        priceTags[blockID].seller = _sellPriceWei;
-        priceTags[blockID].sellPrice = _seller;
+        priceTags[_blockId].seller = _seller;
+        priceTags[_blockId].sellPrice = _sellPriceWei;
     }
 
 // ** ADMIN ** //
@@ -191,13 +198,11 @@ contract Market is Ownable, Destructible, HasNoEther {
         require(candidateContract.isOracleProxy());
         usd = candidateContract;
         // emit ContractUpgrade(_v2Address);
-        emit LogNewOracleProxy(oracleProxyAddr);
+        emit LogNewOracleProxy(_address);
     }
 
     // Emergency
     //TODO return tokens
     //TODO pause-upause
 
-    // fallback
-    function() public { }
 }
