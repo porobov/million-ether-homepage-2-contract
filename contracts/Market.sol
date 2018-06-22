@@ -177,10 +177,10 @@ contract Market is Ownable, Destructible, HasNoEther, DSMath {
         // only owner or seller are allowed to set, update price or cancel
         // require(isAuthorizedSeller(_seller, _blockId));
         // address currentOwner = _ownerOf(_blockId);
-
+        require(_seller == _ownerOf(_blockId));
         // cancel sale
         if (_sellPriceWei == 0) {
-            meh._rejectApproval(_blockId);
+            // meh._rejectApproval(_blockId);
             delete blockIdToPrice[_blockId];
             return;
         }
