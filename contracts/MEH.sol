@@ -34,6 +34,17 @@ contract MEH is ERC721Token("MillionEtherHomePage","MEH"), Ownable, DSMath  {
 
 // ERC721 
     
+    function isMarketWhenOnSale(uint256 _blockId) internal returns (bool) {
+        bool onSale = market.isOnSale(uint16(_blockId));
+        return (!(onSale) || (onSale && msg.sender == address(market)));
+    }
+
+    modifier canTransfer(uint256 _blockId) {
+        require(isMarketWhenOnSale(_blockId));
+        require(isApprovedOrOwner(msg.sender, _blockId));
+        _;
+    }
+    
     function _ownerOf(uint16 _blockId) public view returns (address) {
         if (exists(_blockId)) {
             return ownerOf(_blockId);
@@ -50,6 +61,22 @@ contract MEH is ERC721Token("MillionEtherHomePage","MEH"), Ownable, DSMath  {
     function getBlockOwner(uint8 x, uint8 y) external view returns (address) {
         return _ownerOf(getBlockID(x, y));
     }
+
+    function _rejectApproval(uint16 _blockId) external onlyMarket {
+        require(msg.sender == address(market));
+        require(getApproved(_blockId) == address(market));
+        tokenApprovals[_blockId] = address(0);
+    }
+
+    function _approveMarket(uint16 _blockId) internal {
+        address owner = ownerOf(_blockId);
+        require(msg.sender == owner);
+
+        if (getApproved(_blockId) != address(market)) {
+          tokenApprovals[_blockId] = address(market);
+        }
+    }
+    
 
     /// @dev Set approval (if not set yet) for market contract to transfer all blocks of msg.sender.
     function _setMEHApprovalForAll() internal {
@@ -115,11 +142,13 @@ contract MEH is ERC721Token("MillionEtherHomePage","MEH"), Ownable, DSMath  {
     {   
         require(isLegalCoordinates(fromX, fromY, toX, toY));
 
-        _setMEHApprovalForAll();
+        // _setMEHApprovalForAll();
 
         for (uint8 ix=fromX; ix<=toX; ix++) {
             for (uint8 iy=fromY; iy<=toY; iy++) {
-                market._sellBlock(msg.sender, getBlockID(ix, iy), priceForEachBlockCents);
+                uint16 _blockId = getBlockID(ix, iy);
+                _approveMarket(_blockId);
+                market._sellBlock(msg.sender, _blockId, priceForEachBlockCents);
             }
         }
         // numOwnershipStatuses++;

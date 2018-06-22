@@ -49,7 +49,7 @@ contract Market is Ownable, Destructible, HasNoEther, DSMath {
     // Map from block ID to their corresponding price tag.
     /// @notice uint256 instead of uint16 for ERC721 compliance
     mapping (uint256 => PriceTag) priceTags;
-    
+    mapping (uint16 => uint256) blockIdToPrice;
     // Events
     // price > 0 - for sale. price = 0 - sold (or marked as not for sale). address(0x0) - actions of current landlord
     event LogOwnership (uint ID, uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, address indexed newLandlord, uint newPrice); 
@@ -143,19 +143,25 @@ contract Market is Ownable, Destructible, HasNoEther, DSMath {
         }
 
         // buying from seller:
-        blockPrice = getBlockSellPrice(_blockId);
-        if (blockPrice > 0 && blockOwner == address(this)) {
+        // blockPrice = getBlockSellPrice(_blockId);
+        blockPrice = blockIdToPrice[_blockId];
+
+        if (blockPrice > 0) { // } && blockOwner == address(this)) {
             // require(seller != address(0));
-            address seller = priceTags[_blockId].seller;
+            // address seller = priceTags[_blockId].seller;
             meh._deductFrom(_buyer, blockPrice);
-            _transferTo(_buyer, _blockId);
-            _removePriceTag(_blockId);
-            meh._depositTo(seller, blockPrice);   //  pay seller
+            meh.safeTransferFrom(blockOwner, _buyer, _blockId);
+            // _removePriceTag(_blockId);
+            delete blockIdToPrice[_blockId];
+            meh._depositTo(blockOwner, blockPrice);   //  pay seller
             return;                            //  report zero blocks bought at crowdsale
         }
         revert();  // revert when no conditions are met
     }
 
+    function isOnSale(uint16 _blockId) public view returns (bool) {
+        return (blockIdToPrice[_blockId] > 0);
+    }
 
     // nobody has access to block ownership except current landlord
     // function instead of modifier as modifier used too much stack for placeImage
@@ -169,24 +175,25 @@ contract Market is Ownable, Destructible, HasNoEther, DSMath {
     /// @notice _sellPriceWei = 0 - cancel sale, return blockId to seller
     function _sellBlock(address _seller, uint16 _blockId, uint _sellPriceWei) external onlyMeh {
         // only owner or seller are allowed to set, update price or cancel
-        require(isAuthorizedSeller(_seller, _blockId));
-        address currentOwner = _ownerOf(_blockId);
+        // require(isAuthorizedSeller(_seller, _blockId));
+        // address currentOwner = _ownerOf(_blockId);
 
         // cancel sale
         if (_sellPriceWei == 0) {
-            require(currentOwner != _seller);  // when not yet on sale cannot cancel it
-            _transferTo(_seller, _blockId);
+            meh._rejectApproval(_blockId);
+            delete blockIdToPrice[_blockId];
             return;
         }
 
         // if not yet transfered blockId to the market
-        if (currentOwner != address(this)) {
-            _escrow(_seller, _blockId);
-        }
+        // if (currentOwner != address(this)) {
+        //     _escrow(_seller, _blockId);
+        // }
         
         // set price
-        priceTags[_blockId].seller = _seller;
-        priceTags[_blockId].sellPrice = _sellPriceWei;
+        blockIdToPrice[_blockId] = _sellPriceWei;
+        // priceTags[_blockId].seller = _seller;
+        // priceTags[_blockId].sellPrice = _sellPriceWei;
     }
 
 // ** ADMIN ** //
@@ -208,7 +215,7 @@ contract Market is Ownable, Destructible, HasNoEther, DSMath {
     // import old contract blocks
     function adminImportOldMEBlock(uint8 x, uint8 y) public onlyOwner {
         uint16 blockId = meh.getBlockID(x, y);
-        require(_ownerOf(blockId) == address(0));
+        require(!(meh.exists(blockId)));
         (address oldLandlord, uint i, uint s) = oldMillionEther.getBlockInfo(x, y);  // WARN! sell price s is in wei
         require(oldLandlord != address(0));
         _mintCrowdsaleBlock(oldLandlord, blockId);
