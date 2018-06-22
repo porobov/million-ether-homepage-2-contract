@@ -21,12 +21,6 @@ contract MEH is ERC721Token("MillionEtherHomePage","MEH"), Ownable, DSMath  {
 
 // GUARDS
 
-    // function instead of modifier as modifier used too much stack for placeImage and rentBlocks
-    function isLegalCoordinates(uint8 _fromX, uint8 _fromY, uint8 _toX, uint8 _toY) private pure returns (bool) {
-        return ((_fromX >= 1) && (_fromY >=1)  && (_toX <= 100) && (_toY <= 100) 
-            && (_fromX <= _toX) && (_fromY <= _toY));
-    }
-
     modifier onlyMarket() {
         require(msg.sender == address(market));
         _;
@@ -42,46 +36,12 @@ contract MEH is ERC721Token("MillionEtherHomePage","MEH"), Ownable, DSMath  {
         );
         _;
     }
-    
-    function _ownerOf(uint16 _blockId) public view returns (address) {
-        if (exists(_blockId)) {
-            return ownerOf(_blockId);
-        }
-        return address(0);
-    }
 
     // TODO check for overflow 
     // TODO set modifier to guard >100, <0 etc.
-    function getBlockID(uint8 _x, uint8 _y) public pure returns (uint16) {
+    function blockID(uint8 _x, uint8 _y) public pure returns (uint16) {
         return (uint16(_y) - 1) * 100 + uint16(_x);
     }
-
-    function getBlockOwner(uint8 x, uint8 y) external view returns (address) {
-        return _ownerOf(getBlockID(x, y));
-    }
-
-    // function _rejectApproval(uint16 _blockId) external onlyMarket {
-    //     require(msg.sender == address(market));
-    //     require(getApproved(_blockId) == address(market));
-    //     tokenApprovals[_blockId] = address(0);
-    // }
-
-    // function _approveMarket(uint16 _blockId) internal {
-    //     address owner = ownerOf(_blockId);
-    //     require(msg.sender == owner);
-
-    //     if (getApproved(_blockId) != address(market)) {
-    //       tokenApprovals[_blockId] = address(market);
-    //     }
-    // }
-    
-
-    /// @dev Set approval (if not set yet) for market contract to transfer all blocks of msg.sender.
-    // function _setMEHApprovalForAll() internal {
-    //     if (!(isApprovedForAll(msg.sender, market))) {
-    //         setApprovalForAll(market, true);
-    //     }
-    // }
 
     function _mintCrowdsaleBlock(address _to, uint16 _blockId) external onlyMarket {
         if (totalSupply() <= 9999) {
@@ -92,14 +52,20 @@ contract MEH is ERC721Token("MillionEtherHomePage","MEH"), Ownable, DSMath  {
 // ** PAYMENT PROCESSING ** //
 
 
-    //production: function depositTo(address _recipient, uint _amount) private {
-    function _depositTo(address _recipient, uint _amount) public { // TODO onlyMarket
+    function _depositTo(address _recipient, uint _amount) internal {
         balances[_recipient] = add(balances[_recipient], _amount);
     }
 
-    //production: function deductFrom(address _payer, uint _amount) private {
-    function _deductFrom(address _payer, uint _amount) public {  // TODO onlyMarket
+    function _deductFrom(address _payer, uint _amount) internal {
         balances[_payer] = sub(balances[_payer], _amount);
+    }
+
+    function operatorDepositTo(address _recipient, uint _amount) external onlyMarket {
+        _depositTo(_recipient, _amount);
+    }
+
+    function operatorDeductFrom(address _payer, uint _amount) external onlyMarket  {
+        _deductFrom(_payer, _amount);
     }
 
     function withdraw() external {
@@ -116,6 +82,12 @@ contract MEH is ERC721Token("MillionEtherHomePage","MEH"), Ownable, DSMath  {
 
  // ** BUY AND SELL BLOCKS ** //
 
+    // function instead of modifier as modifier used too much stack for placeImage and rentBlocks
+    function isLegalCoordinates(uint8 _fromX, uint8 _fromY, uint8 _toX, uint8 _toY) private pure returns (bool) {
+        return ((_fromX >= 1) && (_fromY >=1)  && (_toX <= 100) && (_toY <= 100) 
+            && (_fromX <= _toX) && (_fromY <= _toY));
+    }
+
     function buyArea(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY) 
         external
         payable
@@ -125,7 +97,7 @@ contract MEH is ERC721Token("MillionEtherHomePage","MEH"), Ownable, DSMath  {
 
         for (uint8 ix=fromX; ix<=toX; ix++) {
             for (uint8 iy=fromY; iy<=toY; iy++) {
-                market._buyBlock(msg.sender, getBlockID(ix, iy));
+                market._buyBlock(msg.sender, blockID(ix, iy));
             }
         }
         // numOwnershipStatuses++;
@@ -135,18 +107,17 @@ contract MEH is ERC721Token("MillionEtherHomePage","MEH"), Ownable, DSMath  {
 
     // sell an area of blocks at coordinates [fromX, fromY, toX, toY]
     // (priceForEachBlockCents = 0 - not for sale)
-    function sellArea(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, uint priceForEachBlockCents) 
+    function sellArea(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, uint priceForEachBlockWei) 
         external 
     {   
         require(isLegalCoordinates(fromX, fromY, toX, toY));
 
-        // _setMEHApprovalForAll();
-
         for (uint8 ix=fromX; ix<=toX; ix++) {
             for (uint8 iy=fromY; iy<=toY; iy++) {
-                uint16 _blockId = getBlockID(ix, iy);
-                // _approveMarket(_blockId);
-                market._sellBlock(msg.sender, _blockId, priceForEachBlockCents);
+                // only owner is to set, update price or cancel
+                uint16 _blockId = blockID(ix, iy);
+                require(msg.sender == ownerOf(_blockId));
+                market._sellBlock(_blockId, priceForEachBlockWei);
             }
         }
         // numOwnershipStatuses++;
@@ -178,6 +149,12 @@ contract MEH is ERC721Token("MillionEtherHomePage","MEH"), Ownable, DSMath  {
         Market candidateContract = Market(_address);
         require(candidateContract.isMarket());
         market = candidateContract;
+    }
+
+// ** INFO GETTERS ** //
+
+    function getBlockOwner(uint8 x, uint8 y) external view returns (address) {
+        return ownerOf(blockID(x, y));
     }
 
     // Emergency

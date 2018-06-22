@@ -79,17 +79,34 @@ contract Market is Ownable, Destructible, HasNoEther, DSMath {
 
 // ** PAYMENT PROCESSING ** //
 
+    function depositTo(address _recipient, uint _amount) internal {
+        return meh.operatorDepositTo(_recipient, _amount);
+    }
+
+    function deductFrom(address _payer, uint _amount) internal {
+        return meh.operatorDeductFrom(_payer, _amount);
+    }
+
     /// @dev Reward admin and charity
     /// @notice Just for admin convinience. 
     ///  Admin is allowed to transfer charity to any account. 
     ///  Function helps to separate personal funds from charity.
     function depositToAdminAndCharity(uint _amount) internal {
         uint goesToCharity = _amount * 80 / 100;  // 80% goes to charity
-        meh._depositTo(charityVault, goesToCharity);
-        meh._depositTo(owner, _amount - goesToCharity);
+        depositTo(charityVault, goesToCharity);
+        depositTo(owner, _amount - goesToCharity);
     }
 
+
  // ** BUY AND SELL BLOCKS ** //
+
+    function exists(uint16 _blockId) internal view  returns (bool) {
+        return meh.exists(_blockId);
+    }
+
+    function ownerOf(uint16 _blockId) internal view returns (address) {
+        return meh.ownerOf(_blockId);
+    }
 
     function mintCrowdsaleBlock(address _to, uint16 _blockId) internal {
         meh._mintCrowdsaleBlock(_to, _blockId);
@@ -98,10 +115,6 @@ contract Market is Ownable, Destructible, HasNoEther, DSMath {
     function transferFrom(address _from, address _to, uint16 _blockId) internal {
         meh.safeTransferFrom(_from, _to, _blockId);
         return;
-    }
-
-    function ownerOf(uint16 _blockId) internal view returns (address) {
-        return meh.ownerOf(_blockId);
     }
 
     // doubles price every 1000 blocks sold
@@ -114,29 +127,33 @@ contract Market is Ownable, Destructible, HasNoEther, DSMath {
         return mul(mul(usd.oneCentInWei(), crowdsalePriceUSD()), 100);
     }
 
-    // TODO remove dollars
     function blockSellPrice(uint16 _blockId) internal view returns (uint) {
         return blockIdToPrice[_blockId];
+    }
+
+    function setSellPrice(uint16 _blockId, uint256 _sellPriceWei) internal {
+        blockIdToPrice[_blockId] = _sellPriceWei;
     }
 
     function _buyBlock(address _buyer, uint16 _blockId)
         external onlyMeh
     {
         uint blockPrice = 0;
-        if (meh.exists(_blockId)) {
+        if (exists(_blockId)) {
             // buy from current owner
             blockPrice = blockSellPrice(_blockId);
-            require(blockPrice > 0);
-            meh._deductFrom(_buyer, blockPrice);
             address blockOwner = ownerOf(_blockId);
+            require(blockPrice > 0);
+            require(_buyer != blockOwner);
+            deductFrom(_buyer, blockPrice);
             transferFrom(blockOwner, _buyer, _blockId);
-            delete blockIdToPrice[_blockId];
-            meh._depositTo(blockOwner, blockPrice);   //  pay seller
+            setSellPrice(_blockId, 0);
+            depositTo(blockOwner, blockPrice);   //  pay seller
             return;                            //  report zero blocks bought at crowdsale
         } else { 
             // buy at crowdsale:
             blockPrice = crowdsalePriceWei();
-            meh._deductFrom(_buyer, blockPrice);
+            deductFrom(_buyer, blockPrice);
             mintCrowdsaleBlock(_buyer, _blockId);
             depositToAdminAndCharity(blockPrice);//  pay contract owner and charity
             return;                              //  report one block bought at crowdsale
@@ -149,10 +166,8 @@ contract Market is Ownable, Destructible, HasNoEther, DSMath {
 
     /// @dev Trnsfer blockId to market, set or update price tag. Return block to seller.
     /// @notice _sellPriceWei = 0 - cancel sale, return blockId to seller
-    function _sellBlock(address _seller, uint16 _blockId, uint _sellPriceWei) external onlyMeh {
-        // only owner is to set, update price or cancel
-        require(_seller == ownerOf(_blockId));
-        blockIdToPrice[_blockId] = _sellPriceWei;
+    function _sellBlock(uint16 _blockId, uint _sellPriceWei) external onlyMeh {
+        setSellPrice(_blockId, _sellPriceWei);
     }
 
 // ** ADMIN ** //
@@ -173,8 +188,8 @@ contract Market is Ownable, Destructible, HasNoEther, DSMath {
 
     // import old contract blocks
     function adminImportOldMEBlock(uint8 x, uint8 y) public onlyOwner {
-        uint16 blockId = meh.getBlockID(x, y);
-        require(!(meh.exists(blockId)));
+        uint16 blockId = meh.blockID(x, y);
+        require(!(exists(blockId)));
         (address oldLandlord, uint i, uint s) = oldMillionEther.getBlockInfo(x, y);  // WARN! sell price s is in wei
         require(oldLandlord != address(0));
         mintCrowdsaleBlock(oldLandlord, blockId);
