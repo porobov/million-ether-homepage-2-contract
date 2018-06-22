@@ -91,109 +91,68 @@ contract Market is Ownable, Destructible, HasNoEther, DSMath {
 
  // ** BUY AND SELL BLOCKS ** //
 
-    function _mintCrowdsaleBlock(address _to, uint16 _blockId) internal {
+    function mintCrowdsaleBlock(address _to, uint16 _blockId) internal {
         meh._mintCrowdsaleBlock(_to, _blockId);
     }
 
-    /// @dev Transfer seller's tokens to this contract
-    function _escrow(address _from, uint16 _blockId) internal {
-        meh.transferFrom(_from, address(this), _blockId);
-    }
-
-    function _transferTo(address _to, uint16 _blockId) internal {
-        meh.safeTransferFrom(address(this), _to, _blockId);
+    function transferFrom(address _from, address _to, uint16 _blockId) internal {
+        meh.safeTransferFrom(_from, _to, _blockId);
         return;
     }
 
-    function _ownerOf(uint16 _blockId) internal view returns (address) {
-        return meh._ownerOf(_blockId);
+    function ownerOf(uint16 _blockId) internal view returns (address) {
+        return meh.ownerOf(_blockId);
     }
 
     // doubles price every 1000 blocks sold
-    function crowdsalePriceUSD(uint16 _blocksSold) internal pure returns (uint16) {
-        return uint16(2 ** (_blocksSold / 1000));  // check overflow?
+    function crowdsalePriceUSD() internal view returns (uint16) {
+        uint16 blocksSold = uint16(meh.totalSupply());
+        return uint16(2 ** (blocksSold / 1000));  // check overflow?
     }
 
     function crowdsalePriceWei() internal view returns (uint) {
-        return mul(mul(usd.oneCentInWei(), crowdsalePriceUSD(uint16(meh.totalSupply()))), 100);
+        return mul(mul(usd.oneCentInWei(), crowdsalePriceUSD()), 100);
     }
 
     // TODO remove dollars
-    function getBlockSellPrice(uint16 _blockId) internal view returns (uint) {
-        return (mul(usd.oneCentInWei(), priceTags[_blockId].sellPrice));
+    function blockSellPrice(uint16 _blockId) internal view returns (uint) {
+        return blockIdToPrice[_blockId];
     }
 
-    function _removePriceTag(uint16 _blockId) internal {
-        delete priceTags[_blockId];
-    }
-
-    function buyBlock(address _buyer, uint16 _blockId)
+    function _buyBlock(address _buyer, uint16 _blockId)
         external onlyMeh
     {
-        address blockOwner = _ownerOf(_blockId);
-
         uint blockPrice = 0;
-        // buying at crowdsale:
-        if (blockOwner == address(0)) {        
-            blockPrice = crowdsalePriceWei();
+        if (meh.exists(_blockId)) {
+            // buy from current owner
+            blockPrice = blockSellPrice(_blockId);
+            require(blockPrice > 0);
             meh._deductFrom(_buyer, blockPrice);
-            _mintCrowdsaleBlock(_buyer, _blockId);
-            depositToAdminAndCharity(blockPrice);//  pay contract owner and charity
-            return;                              //  report one block bought at crowdsale
-        }
-
-        // buying from seller:
-        // blockPrice = getBlockSellPrice(_blockId);
-        blockPrice = blockIdToPrice[_blockId];
-
-        if (blockPrice > 0) { // } && blockOwner == address(this)) {
-            // require(seller != address(0));
-            // address seller = priceTags[_blockId].seller;
-            meh._deductFrom(_buyer, blockPrice);
-            meh.safeTransferFrom(blockOwner, _buyer, _blockId);
-            // _removePriceTag(_blockId);
+            address blockOwner = ownerOf(_blockId);
+            transferFrom(blockOwner, _buyer, _blockId);
             delete blockIdToPrice[_blockId];
             meh._depositTo(blockOwner, blockPrice);   //  pay seller
             return;                            //  report zero blocks bought at crowdsale
+        } else { 
+            // buy at crowdsale:
+            blockPrice = crowdsalePriceWei();
+            meh._deductFrom(_buyer, blockPrice);
+            mintCrowdsaleBlock(_buyer, _blockId);
+            depositToAdminAndCharity(blockPrice);//  pay contract owner and charity
+            return;                              //  report one block bought at crowdsale
         }
-        revert();  // revert when no conditions are met
     }
 
     function isOnSale(uint16 _blockId) public view returns (bool) {
         return (blockIdToPrice[_blockId] > 0);
     }
 
-    // nobody has access to block ownership except current landlord
-    // function instead of modifier as modifier used too much stack for placeImage
-    function isAuthorizedSeller(address _guy, uint16 _blockId) private view returns (bool) {
-        address blockOwner = _ownerOf(_blockId);
-        address seller = priceTags[_blockId].seller;
-        return (_guy == blockOwner || _guy == seller);
-    }
-
     /// @dev Trnsfer blockId to market, set or update price tag. Return block to seller.
     /// @notice _sellPriceWei = 0 - cancel sale, return blockId to seller
     function _sellBlock(address _seller, uint16 _blockId, uint _sellPriceWei) external onlyMeh {
-        // only owner or seller are allowed to set, update price or cancel
-        // require(isAuthorizedSeller(_seller, _blockId));
-        // address currentOwner = _ownerOf(_blockId);
-        require(_seller == _ownerOf(_blockId));
-        // cancel sale
-        if (_sellPriceWei == 0) {
-            // meh._rejectApproval(_blockId);
-            delete blockIdToPrice[_blockId];
-            return;
-        }
-
-        // if not yet transfered blockId to the market
-        // if (currentOwner != address(this)) {
-        //     _escrow(_seller, _blockId);
-        // }
-        
-        // set price
+        // only owner is to set, update price or cancel
+        require(_seller == ownerOf(_blockId));
         blockIdToPrice[_blockId] = _sellPriceWei;
-        // priceTags[_blockId].seller = _seller;
-        // priceTags[_blockId].sellPrice = _sellPriceWei;
     }
 
 // ** ADMIN ** //
@@ -218,7 +177,7 @@ contract Market is Ownable, Destructible, HasNoEther, DSMath {
         require(!(meh.exists(blockId)));
         (address oldLandlord, uint i, uint s) = oldMillionEther.getBlockInfo(x, y);  // WARN! sell price s is in wei
         require(oldLandlord != address(0));
-        _mintCrowdsaleBlock(oldLandlord, blockId);
+        mintCrowdsaleBlock(oldLandlord, blockId);
 
         // numOwnershipStatuses++;
         // emit LogOwnership(numOwnershipStatuses, x, y, x, y, landlord, 0);

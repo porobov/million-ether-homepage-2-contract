@@ -5,7 +5,7 @@ import "openzeppelin-solidity/contracts/lifecycle/Destructible.sol";  // product
 contract OracleProxy is Destructible {
     
     bool public isOracleProxy = true;
-    uint public oneCentInWei = 1 wei;
+    uint public oneCentInWei = 10 wei;
 
     // function OracleProxy() {
     //     oneCentInWei = 1 wei;  // TODO remove after debug

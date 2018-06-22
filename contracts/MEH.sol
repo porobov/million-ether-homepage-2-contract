@@ -125,7 +125,7 @@ contract MEH is ERC721Token("MillionEtherHomePage","MEH"), Ownable, DSMath  {
 
         for (uint8 ix=fromX; ix<=toX; ix++) {
             for (uint8 iy=fromY; iy<=toY; iy++) {
-                market.buyBlock(msg.sender, getBlockID(ix, iy));
+                market._buyBlock(msg.sender, getBlockID(ix, iy));
             }
         }
         // numOwnershipStatuses++;

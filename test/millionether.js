@@ -39,7 +39,7 @@ $1 - 0
     const admin_bal_before = await me2.balances.call(admin);
     const charity_bal_berore = await me2.balances.call(charityAddress);
 
-    tx = await me2.buyArea(1, 1, 1, 1, {from: buyer, value: web3.toWei(100, 'wei'), gas: 4712388});
+    tx = await me2.buyArea(1, 1, 1, 1, {from: buyer, value: web3.toWei(1000, 'wei'), gas: 4712388});
     logGas(tx, "buyArea (one block");
 
     const blocks_sold_after = await me2.totalSupply.call();
@@ -47,9 +47,9 @@ $1 - 0
     const admin_bal_after = await me2.balances.call(admin);
     const charity_bal_after = await me2.balances.call(charityAddress);
 
-    assert .equal(admin_bal_after.toNumber() - admin_bal_before.toNumber(), web3.toWei(20, 'wei'), 
+    assert .equal(admin_bal_after.toNumber() - admin_bal_before.toNumber(), web3.toWei(200, 'wei'), 
         "admin balance didn't increase right")
-    assert .equal(charity_bal_after.toNumber() - charity_bal_berore.toNumber(), web3.toWei(80, 'wei'),    
+    assert .equal(charity_bal_after.toNumber() - charity_bal_berore.toNumber(), web3.toWei(800, 'wei'),    
         "charity balance didn't increase right")
     assert.equal(blocks_sold_after - blocks_sold_before, 1,    
         "totalSupply didn't increment by 1 (incrementBlocksSold)")
@@ -101,7 +101,7 @@ $1 - 1
     const blocks_sold_before = await me2.totalSupply.call();
     const contract_balance_before = await web3.eth.getBalance(me2.address);
 
-    const tx = await me2.buyArea(1, 3, 6, 3, {from: buyer, value: web3.toWei(1600, 'wei'), gas: 4712388});
+    const tx = await me2.buyArea(1, 3, 6, 3, {from: buyer, value: web3.toWei(16000, 'wei'), gas: 4712388});
     logGas(tx, "buyArea (6 blocks");
 
     const blocks_sold_after = await me2.totalSupply.call();
@@ -111,11 +111,11 @@ $1 - 1
 
     assert.equal(blocks_sold_after.toNumber() - blocks_sold_before.toNumber(), 6, 
         "totalSupply didn't increment right")
-    assert.equal(buyer_bal_after.toNumber(), web3.toWei(1000, 'wei'), 
+    assert.equal(buyer_bal_after.toNumber(), web3.toWei(10000, 'wei'), 
         "buyer balance wasn't calculated right")
     assert.equal(block_6_3_owner, buyer, 
         "the block 6x3 owner wasn't set to buyer");
-    assert.equal(contract_balance_after.toNumber() - contract_balance_before.toNumber(), 1600, 
+    assert.equal(contract_balance_after.toNumber() - contract_balance_before.toNumber(), 16000, 
         "contract balance didn't increase right");
     })
 
@@ -139,7 +139,7 @@ $1 - 1
     const buyer = user_1;
     var error = "";
     try {
-        const tx = await me2.buyArea(100, 101, 100, 101, {from: buyer, value: web3.toWei(1600, 'wei'), gas: 4712388});
+        const tx = await me2.buyArea(100, 101, 100, 101, {from: buyer, value: web3.toWei(1, 'ether'), gas: 4712388});
     } catch (err) {
         error = err
     }
@@ -241,7 +241,7 @@ $1 - 1
 
     var error = "";
     try {
-        const tx = await me2.buyArea(6, 3, 6, 3, {from: buyer, value: web3.toWei(1900, 'wei'), gas: 4712388});
+        const tx = await me2.buyArea(6, 3, 6, 3, {from: buyer, value: web3.toWei(1, 'ether'), gas: 4712388});
     } catch (err) {
         error = err
     }
