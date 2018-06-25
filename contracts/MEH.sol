@@ -1,13 +1,10 @@
 pragma solidity ^0.4.18;
 
-
-import "openzeppelin-solidity/contracts/token/ERC721/ERC721.sol";
-import "openzeppelin-solidity/contracts/token/ERC721/ERC721Basic.sol";
-import "openzeppelin-solidity/contracts/token/ERC721/ERC721Token.sol";
 import "./MEHAccessControl.sol";
+import "./MehERC721.sol";
 import "./Accounting.sol";
 
-contract MEH is ERC721Token("MillionEtherHomePage","MEH"), MEHAccessControl, Accounting {
+contract MEH is MEHAccessControl, MehERC721, Accounting {
 
     // Counters
     uint public numOwnershipStatuses = 0;
@@ -22,23 +19,6 @@ contract MEH is ERC721Token("MillionEtherHomePage","MEH"), MEHAccessControl, Acc
 
     function operatorDeductFrom(address _payer, uint _amount) external onlyMarket whenNotPaused {
         _deductFrom(_payer, _amount);
-    }
-
-// ERC721 
-
-    modifier canTransfer(uint256 _blockId) {
-        bool onSale = market.isOnSale(uint16(_blockId));
-        require (
-            (onSale && msg.sender == address(market)) ||
-            (!(onSale)) && isApprovedOrOwner(msg.sender, _blockId)
-        );
-        _;
-    }
-
-    function _mintCrowdsaleBlock(address _to, uint16 _blockId) external onlyMarket whenNotPaused {
-        if (totalSupply() <= 9999) {
-        _mint(_to, _blockId);
-        }
     }
 
  // ** BUY AND SELL BLOCKS ** //

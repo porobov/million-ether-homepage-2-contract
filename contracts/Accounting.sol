@@ -2,10 +2,10 @@ pragma solidity ^0.4.18;
 
 import "../installed_contracts/math.sol";
 import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
-// import "openzeppelin-solidity/contracts/lifecycle/Pausable.sol";
+import "openzeppelin-solidity/contracts/lifecycle/Pausable.sol";
 // import "./MEHAccessControl.sol";
 
-contract Accounting is DSMath, Ownable {
+contract Accounting is DSMath, Ownable, Pausable {
 
     // Accounting
     mapping(address => uint) public balances;
@@ -20,7 +20,7 @@ contract Accounting is DSMath, Ownable {
         balances[_payer] = sub(balances[_payer], _amount);
     }
 
-    function withdraw() external { // whenNotPaused {
+    function withdraw() external whenNotPaused {
         address payee = msg.sender;
         uint256 payment = balances[payee];
 
@@ -38,7 +38,7 @@ contract Accounting is DSMath, Ownable {
     ///  (funds not locked, withdraw at anytime) it should be relatively easy to manualy 
     ///  transfer unclaimed funds to their owners. This is an alternatinve to selfdestruct
     ///  to make blocks ledger immutable.
-    function adminSaveFunds() external onlyOwner { // whenPaused {
+    function adminSaveFunds() external onlyOwner whenPaused {
         // require(address(market) == )
         address payee = msg.sender;
         uint256 payment = address(this).balance;
