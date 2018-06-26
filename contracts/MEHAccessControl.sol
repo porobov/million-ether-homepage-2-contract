@@ -1,10 +1,9 @@
 pragma solidity ^0.4.18;
 
 import "./Market.sol";
-import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
 import "openzeppelin-solidity/contracts/lifecycle/Pausable.sol";
 
-contract MEHAccessControl is Ownable, Pausable {
+contract MEHAccessControl is Pausable {
 
     bool public isMEH = true;
     Market market;

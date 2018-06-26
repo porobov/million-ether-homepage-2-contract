@@ -1,10 +1,10 @@
 pragma solidity ^0.4.18;
 
-import "./MEHAccessControl.sol";
+// import "./MEHAccessControl.sol";
 import "./MehERC721.sol";
 import "./Accounting.sol";
 
-contract MEH is MEHAccessControl, MehERC721, Accounting {
+contract MEH is MehERC721, Accounting {
 
     // Counters
     uint public numOwnershipStatuses = 0;
