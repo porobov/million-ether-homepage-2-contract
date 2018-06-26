@@ -1,12 +1,18 @@
-pragma solidity ^0.4.18;
+pragma solidity ^0.4.24;
 
-import "./Market.sol";
 import "openzeppelin-solidity/contracts/lifecycle/Pausable.sol";
+
+contract MarketInerface {
+    function isMarket() public returns (bool) {}
+    function _buyBlock(address, uint16) external {}
+    function _sellBlock(uint16, uint) external {}
+    function isOnSale(uint16) public view returns (bool) {}
+}
 
 contract MEHAccessControl is Pausable {
 
     bool public isMEH = true;
-    Market market;
+    MarketInerface market;
 
 // GUARDS
 
@@ -20,19 +26,19 @@ contract MEHAccessControl is Pausable {
     // credits to cryptokittes!
     // NOTE: verify that a contract is what we expect - https://github.com/Lunyr/crowdsale-contracts/blob/cfadd15986c30521d8ba7d5b6f57b4fefcc7ac38/contracts/LunyrToken.sol#L117
     function adminSetMarket(address _address) external onlyOwner { //whenPaused {    // TODO 
-        Market candidateContract = Market(_address);
+        MarketInerface candidateContract = MarketInerface(_address);
         require(candidateContract.isMarket());
         market = candidateContract;
     }
 
     function adminSetRentals(address _address) external onlyOwner whenPaused {
-        Market candidateContract = Market(_address);
+        MarketInerface candidateContract = MarketInerface(_address);
         require(candidateContract.isMarket());
         market = candidateContract;
     }
 
     function adminSetAds(address _address) external onlyOwner whenPaused {
-        Market candidateContract = Market(_address);
+        MarketInerface candidateContract = MarketInerface(_address);
         require(candidateContract.isMarket());
         market = candidateContract;
     }

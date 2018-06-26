@@ -1,10 +1,9 @@
-pragma solidity ^0.4.18;
+pragma solidity ^0.4.24;
 
 import "../installed_contracts/math.sol";
-import "openzeppelin-solidity/contracts/lifecycle/Pausable.sol";
-// import "./MEHAccessControl.sol";
+import "./MEHAccessControl.sol";
 
-contract Accounting is DSMath, Pausable {
+contract Accounting is DSMath, MEHAccessControl {
 
     // Accounting
     mapping(address => uint) public balances;

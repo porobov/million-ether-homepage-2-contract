@@ -1,11 +1,8 @@
-pragma solidity ^0.4.18;
+pragma solidity ^0.4.24;
 
 
 // ERC721 
-import "openzeppelin-solidity/contracts/token/ERC721/ERC721.sol";
-import "openzeppelin-solidity/contracts/token/ERC721/ERC721Basic.sol";
 import "openzeppelin-solidity/contracts/token/ERC721/ERC721Token.sol";
-// import "openzeppelin-solidity/contracts/lifecycle/Pausable.sol";
 import "./MEHAccessControl.sol";
 
 contract MehERC721 is ERC721Token("MillionEtherHomePage","MEH"), MEHAccessControl {

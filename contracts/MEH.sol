@@ -1,6 +1,5 @@
-pragma solidity ^0.4.18;
+pragma solidity ^0.4.24;    
 
-// import "./MEHAccessControl.sol";
 import "./MehERC721.sol";
 import "./Accounting.sol";
 
