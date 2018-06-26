@@ -9,17 +9,6 @@ contract MEH is MehERC721, Accounting {
     uint public numOwnershipStatuses = 0;
     uint public numImages = 0;
 
-
-// ** ACCOUNTING ** //
-
-    function operatorDepositTo(address _recipient, uint _amount) external onlyMarket whenNotPaused {
-        _depositTo(_recipient, _amount);
-    }
-
-    function operatorDeductFrom(address _payer, uint _amount) external onlyMarket whenNotPaused {
-        _deductFrom(_payer, _amount);
-    }
-
  // ** BUY AND SELL BLOCKS ** //
 
     // TODO check for overflow 

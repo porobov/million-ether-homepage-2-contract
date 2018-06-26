@@ -30,6 +30,16 @@ contract Accounting is DSMath, MEHAccessControl {
         assert(payee.send(payment));
     }
 
+    // ** ACCOUNTING ** //
+
+    function operatorDepositTo(address _recipient, uint _amount) external onlyMarket whenNotPaused {
+        _depositTo(_recipient, _amount);
+    }
+
+    function operatorDeductFrom(address _payer, uint _amount) external onlyMarket whenNotPaused {
+        _deductFrom(_payer, _amount);
+    }
+
     //TODO function saveTheMoney whenPaused
     /// @dev withdraw contract balance
     /// @notice To be called in emergency. As the contract is not designed to keep users funds
