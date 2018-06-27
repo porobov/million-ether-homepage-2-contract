@@ -10,7 +10,7 @@ contract('MillionEther', function(accounts) {
   var user_2 = web3.eth.accounts[2]
   var charityAddress = '0x616c6C20796F75206e656564206973206C6f7665'
 
-  // Helpers
+// Helper functions
 
   function getBlockId(x, y) {
     return (y - 1) * 100 + x;
@@ -20,117 +20,103 @@ contract('MillionEther', function(accounts) {
     console.log("       > gasUsed for", _tx_name, _tx.receipt.gasUsed, '|', _tx.receipt.cumulativeGasUsed);
   }
 
-/*
- # Покупаем 1 блок. Алиса покупает 1 блок (buyArea, getBlockPriceAndOwner, incrementBlocksSold)
-$1 - 0
-Проверяем:
-- Она владелец этого блока (getBlockPriceAndOwner)
-- Количество проданных блоков увеличилось
-- Благотворительность и владелец получили деньги
-- Баланс контракта увеличился
-*/
+  // get most important state variables
+  async function mehState(mehInstance) {
+    var state = {};
+    state.user_1_bal = await mehInstance.balances.call(user_1);
+    state.user_2_bal = await mehInstance.balances.call(user_2);
+    state.admin_bal = await mehInstance.balances.call(admin);
+    state.charity_bal = await mehInstance.balances.call(charityAddress);
+    state.contract_bal = 0;  // TODO acounting balance
+    state.contract_bal_eth = await web3.eth.getBalance(mehInstance.address);
+    state.blocks_sold = await mehInstance.totalSupply.call();
+    return state;
+  }
 
-  it("should let buy a block 1x1", async () => {
+  // assert state variables changes
+  function checkStateChange(before, after, deltas) {
+    assert.equal(after.user_1_bal - before.user_1_bal, deltas.user_1_bal, 
+        "user_1 balance delta was wrong");
+    assert.equal(after.user_2_bal - before.user_2_bal, deltas.user_2_bal, 
+        "user_2 balance delta was wrong");
+    assert.equal(after.admin_bal - before.admin_bal, deltas.admin_bal, 
+        "admin balance delta was wrong");
+    assert.equal(after.charity_bal - before.charity_bal, deltas.charity_bal,    
+        "charity balance delta was wrong");
+    // state.contract_bal = 0; 
+    assert.equal(after.contract_bal_eth - before.contract_bal_eth, deltas.contract_bal_eth,    
+        "contract ether balance delta was wrong");
+    assert.equal(after.blocks_sold - before.blocks_sold, deltas.blocks_sold,    
+        "totalSupply delta was wrong");
+    
+  }
+
+// buy 1 block
+  it("should let buy block 1x1", async () => {
     const me2 = await MillionEther.deployed();
- //   const me2storage = await MEStorage.deployed();
-
     const buyer = user_1;
-    const blocks_sold_before = await me2.totalSupply.call();
-    const admin_bal_before = await me2.balances.call(admin);
-    const charity_bal_berore = await me2.balances.call(charityAddress);
+    const before = await mehState(me2);
 
     tx = await me2.buyArea(1, 1, 1, 1, {from: buyer, value: web3.toWei(1000, 'wei'), gas: 4712388});
     logGas(tx, "buyArea (one block");
 
-    const blocks_sold_after = await me2.totalSupply.call();
-    const block_1_1_owner = await me2.getBlockOwner.call(1, 1);
-    const admin_bal_after = await me2.balances.call(admin);
-    const charity_bal_after = await me2.balances.call(charityAddress);
+    const after = await mehState(me2);
+    const deltas = {
+        user_1_bal: 0,
+        user_2_bal: 0,
+        admin_bal: web3.toWei(200, 'wei'),
+        charity_bal: web3.toWei(800, 'wei'),
+        contract_bal: 0,
+        contract_bal_eth: 1000,
+        blocks_sold: 1
+    }
+    checkStateChange(before, after, deltas);
 
-    assert .equal(admin_bal_after.toNumber() - admin_bal_before.toNumber(), web3.toWei(200, 'wei'), 
-        "admin balance didn't increase right")
-    assert .equal(charity_bal_after.toNumber() - charity_bal_berore.toNumber(), web3.toWei(800, 'wei'),    
-        "charity balance didn't increase right")
-    assert.equal(blocks_sold_after - blocks_sold_before, 1,    
-        "totalSupply didn't increment by 1 (incrementBlocksSold)")
-    assert.equal(block_1_1_owner, buyer,                       
+    assert.equal(await me2.getBlockOwner.call(1, 1), buyer,                       
         "the block 1x1 owner wasn't set");
   })
 
-
-  // it("should let buy erc blocks", async () => {
-  //   const me2 = await MillionEther.deployed();
-  //   // const me2storage = await MEStorage.deployed();
-
-  //   const buyer = user_1;
-  //   const admin_bal_before = await me2.balances.call(admin);
-  //   const charity_bal_berore = await me2.balances.call(charityAddress);
-
-  //   tx = await me2.buyERCArea(15, 15, 20, 15, {from: buyer, value: web3.toWei(600, 'wei'), gas: 4712388});
-  //   logGas(tx, "buyArea (one block");
-
-  //   const admin_bal_after = await me2.balances.call(admin);
-  //   const charity_bal_after = await me2.balances.call(charityAddress);
-
-  //   assert .equal(admin_bal_after.toNumber() - admin_bal_before.toNumber(), web3.toWei(120, 'wei'), 
-  //       "admin balance didn't increase right");
-  //   assert .equal(charity_bal_after.toNumber() - charity_bal_berore.toNumber(), web3.toWei(480, 'wei'),    
-  //       "charity balance didn't increase right");   
-  // })
-
-
-
-/*
-# Много блоков
-$1 - 1
-- Покупаем много блоков. Боб покупает 6 блоков (buyArea, getBlockPriceAndOwner, incrementBlocksSold, depositToAdminAndCharity, depositTo)
-- Внести средств для покупки 16 блоков.
-- Проверить, что владелец получил 2 вей, а благотворительность 4 вей, а у Боба осталось 10. 
-- Баланс контракта увеличился
-
-- Покупаем много блоков снова. Боб покупает 10 блоков (depositToAdminAndCharity, deductFrom)
-- Проверить, что владелец получил 2 эфира, а благотворительность 8
-- Проверить, что у Боба баланс равен 0. 
-*/
-
-  it("should let buy many block", async () => {
+// sell 1 block
+  it("should let sell block 1x1", async () => {
     const me2 = await MillionEther.deployed();
-    // const me2storage = await MEStorage.deployed();
-
+    const seller = user_1;
     const buyer = user_2;
-    const blocks_sold_before = await me2.totalSupply.call();
-    const contract_balance_before = await web3.eth.getBalance(me2.address);
+    const before = await mehState(me2);
 
-    const tx = await me2.buyArea(1, 3, 6, 3, {from: buyer, value: web3.toWei(16000, 'wei'), gas: 4712388});
-    logGas(tx, "buyArea (6 blocks");
+    var tx = await me2.sellArea(1, 1, 1, 1, 5, {from: seller, gas: 4712388});
+    logGas(tx, "sellArea (1 block");
+    tx = await me2.buyArea(1, 1, 1, 1, {from: buyer, value: web3.toWei(5, 'wei'), gas: 4712388});
+    logGas(tx, "buyArea from landlord (1 block");
 
-    const blocks_sold_after = await me2.totalSupply.call();
-    const block_6_3_owner = await me2.getBlockOwner.call(6, 3);
-    const buyer_bal_after = await me2.balances.call(buyer);
-    const contract_balance_after = await web3.eth.getBalance(me2.address);
+    const after = await mehState(me2);
+    const deltas = {
+        user_1_bal: 5,
+        user_2_bal: 0,
+        admin_bal: web3.toWei(0, 'wei'),
+        charity_bal: web3.toWei(0, 'wei'),
+        contract_bal: 0,
+        contract_bal_eth: 5,
+        blocks_sold: 0
+    }
+    checkStateChange(before, after, deltas);
 
-    assert.equal(blocks_sold_after.toNumber() - blocks_sold_before.toNumber(), 6, 
-        "totalSupply didn't increment right")
-    assert.equal(buyer_bal_after.toNumber(), web3.toWei(10000, 'wei'), 
-        "buyer balance wasn't calculated right")
-    assert.equal(block_6_3_owner, buyer, 
-        "the block 6x3 owner wasn't set to buyer");
-    assert.equal(contract_balance_after.toNumber() - contract_balance_before.toNumber(), 16000, 
-        "contract balance didn't increase right");
-    })
-
+    assert.equal(await me2.getBlockOwner.call(1, 1), buyer,                       
+        "the block 1x1 owner wasn't set");  
+  })
 
 // Illegal buy/sell actions
 
-  it("should permit buying block not marked for sale (onlyForSale)", async () => {
+  it("should permit buying block not marked for sale", async () => {
     const me2 = await MillionEther.deployed();
     const buyer = user_1;
+    const owner = await me2.getBlockOwner.call(1, 1);
     var error = "";
     try {
-        const tx = await me2.buyArea(1, 3, 1, 3, {from: buyer, value: web3.toWei(1, 'ether'), gas: 4712388});
+        const tx = await me2.buyArea(1, 1, 1, 1, {from: buyer, value: web3.toWei(1, 'ether'), gas: 4712388});
     } catch (err) {
         error = err
     }
+    assert.equal(await me2.getBlockOwner.call(1, 1), owner, "changed owner of block!");
     assert.equal(error.message.substring(43,49), "revert", "allowed buying block not marked for sale!");
   })
 
@@ -143,22 +129,23 @@ $1 - 1
     } catch (err) {
         error = err
     }
-    assert.equal(error.message.substring(43,49), "revert", "allowed buying block beyond 1000x1000 px field!");
+    assert.equal(await me2.exists.call(getBlockId(100, 101)), false, "minted a block outside 100x100 field!");
+    assert.equal(error.message.substring(43,49), "revert", "allowed buying block beyond 100x100 field!");
   })
 
-  it("should permit selling other landlord's block (requireBlockOwnership)", async () => {
+  it("should permit selling other landlord's block", async () => {
     const me2 = await MillionEther.deployed();
-    const buyer = user_1;
+    const seller = user_1;
     var error = "";
     try {
-        const tx = await me2.sellArea(1, 3, 1, 3, 100, {from: buyer, gas: 4712388});
+        const tx = await me2.sellArea(1, 1, 1, 1, 100, {from: seller, gas: 4712388});
     } catch (err) {
         error = err
     }
     assert.equal(error.message.substring(43,49), "revert", "allowed selling other landlord's block!");
   })
 
-  it("should permit selling crowdsale block (requireBlockOwnership)", async () => {
+  it("should permit selling crowdsale block", async () => {
     const me2 = await MillionEther.deployed();
     const buyer = user_1;
     var error = "";
@@ -170,88 +157,98 @@ $1 - 1
     assert.equal(error.message.substring(43,49), "revert", "allowed selling crowdsale block!");
   })
 
-// # Продажа блоков
-// - Выставляем блоки на продажу. Боб выставляет блоки на продажу
-// - Проверить, что блоки на продаже (getBlockPriceAndOwner)
-// - Покупаем у landlord'a. Алиса покупает 30 блоков, включая блоки боба
-// - Проверить баланс Боба и Алисы
-// - Снять блок с продажи
 
-
-// Selling blocks
-
-  it("should let sell blocks", async () => {
+//buy own block(1, 2)
+  it("should permit buying own blocks", async () => {
     const me2 = await MillionEther.deployed();
-    // const me2storage = await MEStorage.deployed();
-
-    const seller = user_2;
     const buyer = user_1;
-    const seller_bal_before = await me2.balances.call(seller);
-    const buyer_bal_before = await me2.balances.call(buyer);
-    const blocks_sold_before = await me2.totalSupply.call();
-
-    var tx = await me2.sellArea(1, 3, 6, 3, 200, {from: seller, gas: 4712388});
-    logGas(tx, "sellArea (5 blocks a landlord");
-    // selling and buying from theirown
-    //tx = await me2.sellArea(1, 1, 1, 1, 100, {from: buyer, gas: 4712388});
-    // buy 15 blocks, including her own one, 5 from other landlord, leave block 6x3 on sale
-    //tx = await me2.buyArea(1, 1, 5, 3, {from: buyer, value: web3.toWei(1900, 'wei'), gas: 4712388});
-    tx = await me2.buyArea(1, 3, 5, 3, {from: buyer, value: web3.toWei(1900, 'wei'), gas: 4712388});
-    logGas(tx, "buyArea (5 blocks a landlord");
-
-    const seller_bal_after = await me2.balances.call(seller);
-    const buyer_bal_after = await me2.balances.call(buyer);
-    const blocks_sold_after = await me2.totalSupply.call();
-    const first_block_owner = await me2.getBlockOwner.call(1, 3);
-    const last_block_owner = await me2.getBlockOwner.call(5, 3);
-    
-
-    assert.equal(seller_bal_after.toNumber() - seller_bal_before.toNumber(), 1000, 
-        "seller_bal didn't increment right");
-    assert.equal(buyer_bal_after.toNumber() - buyer_bal_before.toNumber(), 900,
-        "buyer_bal changed");
-    assert.equal(blocks_sold_after - blocks_sold_before, 0,    
-        "totalSupply didn't increment by 0 (incrementBlocksSold)");
-    assert.equal(first_block_owner, buyer,                       
-        "first block owner wasn't set correctly");
-    assert.equal(last_block_owner, buyer,                       
-        "last block owner wasn't set correctly");
+    var tx = await me2.buyArea(1, 2, 1, 2, {from: buyer, value: web3.toWei(1000, 'wei'), gas: 4712388});
+    tx = await me2.sellArea(1, 2, 1, 2, 1000, {from: buyer, gas: 4712388});
+    var error = "";
+    try {
+        tx = await me2.buyArea(1, 2, 1, 2, {from: buyer, value: web3.toWei(1, 'ether'), gas: 4712388});
+    } catch (err) {
+        error = err
+    }
+    assert.equal(error.message.substring(43,49), "revert", "allowed buying own block!");
   })
 
-
+//stop selling block(1, 2)
   it("should let stop selling blocks", async () => {
     const me2 = await MillionEther.deployed();
-    const seller = user_2;
+    const seller = user_1;
+    const buyer = user_2;
+    var tx = await me2.sellArea(1, 2, 1, 2, 0, {from: seller, gas: 4712388});
 
-    // mark 6x3 not for sale
-    var tx = await me2.sellArea(6, 3, 6, 3, 0, {from: seller, gas: 4712388});
-
-    const first_block_owner = await me2.getBlockOwner.call(6, 3);
-
+    var error = "";
+    try {
+        tx = await me2.buyArea(1, 2, 1, 2, {from: buyer, value: web3.toWei(1, 'ether'), gas: 4712388});
+    } catch (err) {
+        error = err
+    }
+    assert.equal(error.message.substring(43,49), "revert", "allowed buying own block!");
+    const first_block_owner = await me2.getBlockOwner.call(1, 2);
     assert.equal(first_block_owner, seller,                       
         "first block owner wasn't set correctly");
     })
 
-
-  it("should permit buying block removed from sale", async () => {
+// buy 5 blocks
+  it("should let buy 5 blocks (bottom-right)", async () => {
     const me2 = await MillionEther.deployed();
-
-    const seller = user_2;
     const buyer = user_1;
+    const before = await mehState(me2);
 
-    var error = "";
-    try {
-        const tx = await me2.buyArea(6, 3, 6, 3, {from: buyer, value: web3.toWei(1, 'ether'), gas: 4712388});
-    } catch (err) {
-        error = err
+    const tx = await me2.buyArea(96, 100, 100, 100, {from: buyer, value: web3.toWei(5000, 'wei'), gas: 4712388});
+    logGas(tx, "buyArea (5 blocks");
+
+    const after = await mehState(me2);
+    const deltas = {
+        user_1_bal: 0,
+        user_2_bal: 0,
+        admin_bal: web3.toWei(1000, 'wei'),
+        charity_bal: web3.toWei(4000, 'wei'),
+        contract_bal: 0,
+        contract_bal_eth: 5000,
+        blocks_sold: 5
     }
-    const first_block_owner = await me2.getBlockOwner.call(6, 3);
+    checkStateChange(before, after, deltas);
+    assert.equal(await me2.getBlockOwner.call(100, 100), buyer,                       
+        "the block 1x1 owner wasn't set"); 
+    })
 
-    assert.equal(error.message.substring(43,49), "revert", 
-        "allowed selling crowdsale block!");
-    assert.equal(first_block_owner, seller,                       
-        "the block 6x3 owner wasn't set correctly");
+// sell 5 blocks
+  it("should let sell blocks", async () => {
+    const me2 = await MillionEther.deployed();
+    const seller = user_1;
+    const buyer = user_2;
+    const before = await mehState(me2);
+
+    var tx = await me2.sellArea(96, 100, 100, 100, 2000, {from: seller, gas: 4712388});
+    logGas(tx, "sellArea (5 blocks");
+    tx = await me2.buyArea(96, 100, 100, 100, {from: buyer, value: web3.toWei(20000, 'wei'), gas: 4712388});
+    logGas(tx, "buyArea (5 blocks from a landlord");
+
+    const after = await mehState(me2);
+    const deltas = {
+        user_1_bal: 10000,
+        user_2_bal: 10000,
+        admin_bal: web3.toWei(0, 'wei'),
+        charity_bal: web3.toWei(0, 'wei'),
+        contract_bal: 0,
+        contract_bal_eth: 20000,
+        blocks_sold: 0
+    }
+    checkStateChange(before, after, deltas);
+
+    assert.equal(await me2.getBlockOwner.call(96, 100), buyer,                       
+        "first block owner wasn't set"); 
+    assert.equal(await me2.getBlockOwner.call(100, 100), buyer,                       
+        "last block owner wasn't set"); 
   })
+
+//buy mixed blocks (from crowdsale and from a landlord)
+
+
 
 
   it("should import old block", async () => {
@@ -268,34 +265,5 @@ $1 - 1
         "first_block owner wasn't set correctly");
 
     })
-  // TODO try mul with mul(322, 0) or mul(0, 322)
-
-  //  function placeImage (uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, string imageSourceUrl, string adUrl, string adText) 
-
-  // it("should let place image", function() {
-
-  //   var buyer_1 = user_1;
-  //   var image_id_before;
-  //   var image_id_after;
-    
-
-  //   return MillionEther.deployed().then(function(instance) {
-  //       me2 = instance;
-  //       return MEStorage.deployed().then(function(instance) {
-  //           me2storage = instance;
-  //           return me2.numImages.call();
-  //       }).then(function(id) {
-  //           image_id_before = id.toNumber();
-  //           return me2.placeImage(1, 1, 8, 9, "sadf","sfa","asdgbb", {from: buyer_1, gas: 4712388});
-  //       }).then(function(tx) {
-  //           logGas(tx, "placeImage");
-  //           return me2.numImages.call();
-  //       }).then(function(id) {
-  //           image_id_after = id.toNumber();
-
-  //           assert.equal(image_id_after - image_id_before, 1, "the image id wasn't incremented");
-  //       });
-  //   });
-  // });
 
 });

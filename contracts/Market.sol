@@ -27,8 +27,6 @@ import "../test/mockups/OldeMillionEther.sol";
 
 contract Market is Ownable, Destructible, HasNoEther, DSMath {
 
-    
-
     // Charity
     address public constant charityVault = 0x616c6C20796F75206e656564206973206C6f7665; // "all you need is love" in hex format. Insures nobody has access to it. Used for internal acounting only. 
     uint public charityPayed = 0;
@@ -39,17 +37,10 @@ contract Market is Ownable, Destructible, HasNoEther, DSMath {
     MEH  meh;
     OracleProxy usd;
 
-    // Blocks
-    struct PriceTag {
-        uint sellPrice;    // price if willing to sell, 0 if not
-        address seller;    // block landlord becomes seller
-        
-    }
-
     // Map from block ID to their corresponding price tag.
     /// @notice uint256 instead of uint16 for ERC721 compliance
-    mapping (uint256 => PriceTag) priceTags;
     mapping (uint16 => uint256) blockIdToPrice;
+
     // Events
     // price > 0 - for sale. price = 0 - sold (or marked as not for sale). address(0x0) - actions of current landlord
     event LogOwnership (uint ID, uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, address indexed newLandlord, uint newPrice); 
@@ -59,7 +50,7 @@ contract Market is Ownable, Destructible, HasNoEther, DSMath {
     event LogNewOracleProxy(address oracleProxy);
     event LogCharityTransfer(address charityAddress, uint amount);
     event LogNewFees(uint newImagePlacementFeeCents);
-    event LogContractUpgrade(address newAddress, string ContractName);
+
 
 // ** INITIALIZE ** //
 
@@ -97,8 +88,7 @@ contract Market is Ownable, Destructible, HasNoEther, DSMath {
         depositTo(owner, _amount - goesToCharity);
     }
 
-
- // ** BUY AND SELL BLOCKS ** //
+// ** ERC721 ** //
 
     function exists(uint16 _blockId) internal view  returns (bool) {
         return meh.exists(_blockId);
@@ -117,6 +107,8 @@ contract Market is Ownable, Destructible, HasNoEther, DSMath {
         return;
     }
 
+// ** BUY AND SELL BLOCKS ** //
+
     // doubles price every 1000 blocks sold
     function crowdsalePriceUSD() internal view returns (uint16) {
         uint16 blocksSold = uint16(meh.totalSupply());
@@ -124,16 +116,15 @@ contract Market is Ownable, Destructible, HasNoEther, DSMath {
     }
 
     function crowdsalePriceWei() internal view returns (uint) {
-        return mul(mul(usd.oneCentInWei(), crowdsalePriceUSD()), 100);
+        uint256 oneCentInWei = usd.oneCentInWei();
+        require(oneCentInWei > 0);
+        return mul(mul(oneCentInWei, crowdsalePriceUSD()), 100);
     }
 
     function blockSellPrice(uint16 _blockId) internal view returns (uint) {
         return blockIdToPrice[_blockId];
     }
 
-    function setSellPrice(uint16 _blockId, uint256 _sellPriceWei) internal {
-        blockIdToPrice[_blockId] = _sellPriceWei;
-    }
 
     function _buyBlock(address _buyer, uint16 _blockId)
         external onlyMeh
@@ -170,9 +161,13 @@ contract Market is Ownable, Destructible, HasNoEther, DSMath {
         setSellPrice(_blockId, _sellPriceWei);
     }
 
+    function setSellPrice(uint16 _blockId, uint256 _sellPriceWei) internal {
+        blockIdToPrice[_blockId] = _sellPriceWei;
+    }
+
 // ** ADMIN ** //
 
-    function adminSetMeh(address _address) public onlyOwner {
+    function adminSetMeh(address _address) internal onlyOwner {
         MEH candidateContract = MEH(_address);
         require(candidateContract.isMEH());
         meh = candidateContract;
@@ -193,9 +188,6 @@ contract Market is Ownable, Destructible, HasNoEther, DSMath {
         (address oldLandlord, uint i, uint s) = oldMillionEther.getBlockInfo(x, y);  // WARN! sell price s is in wei
         require(oldLandlord != address(0));
         mintCrowdsaleBlock(oldLandlord, blockId);
-
-        // numOwnershipStatuses++;
-        // emit LogOwnership(numOwnershipStatuses, x, y, x, y, landlord, 0);
     }
 
     // Emergency

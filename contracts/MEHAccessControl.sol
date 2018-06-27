@@ -14,6 +14,8 @@ contract MEHAccessControl is Pausable {
     bool public isMEH = true;
     MarketInerface market;
 
+    event LogContractUpgrade(address newAddress, string ContractName);
+    
 // GUARDS
 
     modifier onlyMarket() {
