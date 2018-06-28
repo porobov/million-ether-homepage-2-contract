@@ -167,6 +167,14 @@ contract Market is Ownable, Destructible, HasNoEther, DSMath {
 
 // ** ADMIN ** //
 
+    // // transfer charity to an address (internally)
+    // function adminTransferCharity(address charityAddress, uint amount, string reason) external onlyOwner {
+    //     deductFrom(charityVault, amount);
+    //     depositTo(charityAddress, amount);
+    //     charityPayed += amount;
+    //     emit LogCharityTransfer(charityAddress, amount, reason);
+    // }
+
     function adminSetMeh(address _address) internal onlyOwner {
         MEH candidateContract = MEH(_address);
         require(candidateContract.isMEH());
