@@ -65,7 +65,7 @@ contract('MillionEther', function(accounts) {
         blocks_sold: 0
     }
 
-// buy 1 block
+// buy 1 block (1, 1)
   it("should let buy block 1x1", async () => {
     const me2 = await MillionEther.deployed();
     const buyer = user_1;
@@ -325,7 +325,7 @@ contract('MillionEther', function(accounts) {
   })
 
 if (BUY_SELL_5_BLOCKS) {
-// buy 5 blocks (96, 100)
+// buy 5 blocks (96, 100) - (100,100)
   it("should let buy 5 blocks (bottom-right)", async () => {
     const me2 = await MillionEther.deployed();
     const buyer = user_1;
@@ -381,7 +381,7 @@ if (BUY_SELL_5_BLOCKS) {
 }
 
 if (BUY_MIXED_BLOCKS) {
-// buy mixed blocks (0, 100)
+// buy mixed blocks (1, 98) - (5,100)
   it("should let buy mixed blocks (from crowdsale and from a landlord)", async () => {
     const me2 = await MillionEther.deployed();
     const seller = user_1;
@@ -410,6 +410,20 @@ if (BUY_MIXED_BLOCKS) {
         "last block owner wasn't set"); 
   })
 }
+
+// Place Ads (50, 1) - ()
+  it("should let owner of blocks to place ads", async () => {
+    const me2 = await MillionEther.deployed();
+    const advertiser = user_1;
+
+    var tx = await me2.buyArea(50, 1, 54, 4, {from: advertiser, value: web3.toWei(20000, 'wei'), gas: 4712388});
+
+    tx = await me2.placeImage(50, 1, 54, 4, "imageSourceUrl", "adUrl", "adText",  {from: advertiser, gas: 4712388});
+
+    assert.equal(0, 0,                       
+        "first block owner wasn't set");  // TODO check actual event
+
+  })
 
 if (CHECK_PRICE_DOUBLING) {
 // buy 10% of blocks (1, 8) - (40, 25)
@@ -448,7 +462,7 @@ if (CHECK_PRICE_DOUBLING) {
   })
 }
 
-//
+
 
 
 // Paused 
