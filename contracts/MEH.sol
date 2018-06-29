@@ -61,6 +61,15 @@ contract MEH is MehERC721, Accounting {
         // emit LogOwnership(numOwnershipStatuses, fromX, fromY, toX, toY, address(0x0), priceForEachBlockCents);
     }
 
+    function placeImage(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, string imageSourceUrl, string adUrl, string adText) 
+        external
+        payable
+        whenNotPaused
+    {   
+        require(isLegalCoordinates(fromX, fromY, toX, toY));
+        ads.placeImage(msg.sender, fromX, fromY, toX, toY, imageSourceUrl, adUrl, adText);
+
+    }
 
 // ** INFO GETTERS ** //
 

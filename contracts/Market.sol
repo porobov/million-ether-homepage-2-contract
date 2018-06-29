@@ -17,25 +17,21 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 pragma solidity ^0.4.18;
 
+import "./MehModule.sol";
 import "../installed_contracts/math.sol";
-import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
-import "openzeppelin-solidity/contracts/ownership/HasNoEther.sol";
-import "openzeppelin-solidity/contracts/lifecycle/Destructible.sol";  // production is immortal
-import "./MEH.sol";
 import "../test/mockups/OracleProxy.sol";
 import "../test/mockups/OldeMillionEther.sol";
 
-contract Market is Ownable, Destructible, HasNoEther, DSMath {
+contract Market is MehModule, DSMath {
+    
+    // Contracts
+    bool public isMarket = true;
+    OldeMillionEther oldMillionEther;
+    OracleProxy usd;
 
     // Charity
     address public constant charityVault = 0x616c6C20796F75206e656564206973206C6f7665; // "all you need is love" in hex format. Insures nobody has access to it. Used for internal acounting only. 
     uint public charityPayed = 0;
-
-    // Contracts
-    bool public isMarket = true;
-    OldeMillionEther oldMillionEther;
-    MEH  meh;
-    OracleProxy usd;
 
     // Map from block ID to their corresponding price tag.
     /// @notice uint256 instead of uint16 for ERC721 compliance
@@ -44,7 +40,6 @@ contract Market is Ownable, Destructible, HasNoEther, DSMath {
     // Events
     // price > 0 - for sale. price = 0 - sold (or marked as not for sale). address(0x0) - actions of current landlord
     event LogOwnership (uint ID, uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, address indexed newLandlord, uint newPrice); 
-    event LogImage     (uint ID, uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, string imageSourceUrl, string adUrl, string adText, address indexed publisher);
 
     // Reports
     event LogNewOracleProxy(address oracleProxy);
@@ -56,16 +51,8 @@ contract Market is Ownable, Destructible, HasNoEther, DSMath {
 
     constructor(address _mehAddress, address _oldMehAddress, address _oracleProxyAddress) public {
         oldMillionEther = OldeMillionEther(_oldMehAddress);
-        // TODO some test on OldeMillionEther
         adminSetMeh(_mehAddress);
         adminSetOracle(_oracleProxyAddress);
-    }
-
-// ** GUARDS ** //
-
-    modifier onlyMeh() {
-        require(msg.sender == address(meh));
-        _;
     }
 
 // ** PAYMENT PROCESSING ** //
@@ -174,12 +161,6 @@ contract Market is Ownable, Destructible, HasNoEther, DSMath {
     //     charityPayed += amount;
     //     emit LogCharityTransfer(charityAddress, amount, reason);
     // }
-
-    function adminSetMeh(address _address) internal onlyOwner {
-        MEH candidateContract = MEH(_address);
-        require(candidateContract.isMEH());
-        meh = candidateContract;
-    }
 
     function adminSetOracle(address _address) public onlyOwner {
         OracleProxy candidateContract = OracleProxy(_address);

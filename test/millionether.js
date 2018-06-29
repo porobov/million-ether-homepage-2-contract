@@ -3,9 +3,9 @@
 var MillionEther = artifacts.require("./MEH.sol");
 var Market = artifacts.require("./Market.sol");
 
-const BUY_SELL_5_BLOCKS = true;
-const BUY_MIXED_BLOCKS = true;
-const CHECK_PRICE_DOUBLING = true;
+const BUY_SELL_5_BLOCKS = false;
+const BUY_MIXED_BLOCKS = false;
+const CHECK_PRICE_DOUBLING = false;
 
 contract('MillionEther', function(accounts) {
 
@@ -235,129 +235,6 @@ contract('MillionEther', function(accounts) {
         "buyer didn't recieve all funds");
     })
 
-// buy 5 blocks (96, 100)
-if (BUY_SELL_5_BLOCKS) {
-  it("should let buy 5 blocks (bottom-right)", async () => {
-    const me2 = await MillionEther.deployed();
-    const buyer = user_1;
-    const before = await mehState(me2);
-
-    const tx = await me2.buyArea(96, 100, 100, 100, {from: buyer, value: web3.toWei(5000, 'wei'), gas: 4712388});
-    logGas(tx, "buyArea (5 blocks");
-
-    const after = await mehState(me2);
-    const deltas = {
-        user_1_bal: 0,
-        user_2_bal: 0,
-        admin_bal: web3.toWei(1000, 'wei'),
-        charity_bal: web3.toWei(4000, 'wei'),
-        contract_bal: 0,
-        contract_bal_eth: 5000,
-        blocks_sold: 5
-    }
-    checkStateChange(before, after, deltas);
-    assert.equal(await me2.getBlockOwner.call(100, 100), buyer,                       
-        "the block 1x1 owner wasn't set"); 
-    })
-
-// sell 5 blocks (96, 100)
-  it("should let sell blocks", async () => {
-    const me2 = await MillionEther.deployed();
-    const seller = user_1;
-    const buyer = user_2;
-    const before = await mehState(me2);
-
-    var tx = await me2.sellArea(96, 100, 100, 100, 2000, {from: seller, gas: 4712388});
-    logGas(tx, "sellArea (5 blocks");
-    tx = await me2.buyArea(96, 100, 100, 100, {from: buyer, value: web3.toWei(20000, 'wei'), gas: 4712388});
-    logGas(tx, "buyArea (5 blocks from a landlord");
-
-    const after = await mehState(me2);
-    const deltas = {
-        user_1_bal: 10000,
-        user_2_bal: 10000,
-        admin_bal: web3.toWei(0, 'wei'),
-        charity_bal: web3.toWei(0, 'wei'),
-        contract_bal: 0,
-        contract_bal_eth: 20000,
-        blocks_sold: 0
-    }
-    checkStateChange(before, after, deltas);
-
-    assert.equal(await me2.getBlockOwner.call(96, 100), buyer,                       
-        "first block owner wasn't set"); 
-    assert.equal(await me2.getBlockOwner.call(100, 100), buyer,                       
-        "last block owner wasn't set"); 
-  })
-}
-
-if (BUY_MIXED_BLOCKS) {
-// buy mixed blocks (0, 100)
-  it("should let buy mixed blocks (from crowdsale and from a landlord)", async () => {
-    const me2 = await MillionEther.deployed();
-    const seller = user_1;
-    const buyer = user_2;
-    const before = await mehState(me2);
-
-    var tx = await me2.buyArea(1, 99, 5, 99, {from: seller, value: web3.toWei(5000, 'wei'), gas: 4712388});
-    tx = await me2.sellArea(1, 99, 5, 99, 2000, {from: seller, gas: 4712388});
-    tx = await me2.buyArea(1, 98, 5, 100, {from: buyer, value: web3.toWei(20000, 'wei'), gas: 4712388});
-
-    const after = await mehState(me2);
-    const deltas = {
-        user_1_bal: 10000,
-        user_2_bal: 0,
-        admin_bal: web3.toWei(3000, 'wei'),
-        charity_bal: web3.toWei(12000, 'wei'),
-        contract_bal: 0,
-        contract_bal_eth: 25000,
-        blocks_sold: 15
-    }
-    checkStateChange(before, after, deltas);
-
-    assert.equal(await me2.getBlockOwner.call(1, 98), buyer,                       
-        "first block owner wasn't set"); 
-    assert.equal(await me2.getBlockOwner.call(5, 100), buyer,                       
-        "last block owner wasn't set"); 
-  })
-}
-
-// buy 10% of blocks (1, 8) - (40, 25)
-if (CHECK_PRICE_DOUBLING) {
-  it("should double price after 10% of blocks sold", async () => {
-    const me2 = await MillionEther.deployed();
-    const very_rich_buyer = user_1;
-    const before = await mehState(me2);
-
-    const blocks_to_buy = 1000 - before.blocks_sold;
-    const number_of_40_block_packs = Math.trunc(blocks_to_buy/40);
-    var i; var tx;
-    for (i = 0; i < number_of_40_block_packs; i++) { 
-        tx = await me2.buyArea(1, 10+i, 40, 10+i, {from: very_rich_buyer, value: web3.toWei(40000, 'wei'), gas: 6721975});
-    }
-    logGas(tx, "buyArea from owner (40 block");
-
-    const number_of_1_block_packs = blocks_to_buy % 40;
-    if (number_of_1_block_packs > 0) {
-       tx = await me2.buyArea(1, 9, number_of_1_block_packs, 9, {from: very_rich_buyer, value: web3.toWei(number_of_1_block_packs * 1000, 'wei'), gas: 6721975}); 
-    }
-
-    // buy block number 1001 at a doubled priced
-    tx = await me2.buyArea(1, 8, 1, 8, {from: very_rich_buyer, value: web3.toWei(2000, 'wei'), gas: 6721975}); 
-
-    const after = await mehState(me2);
-    const deltas = {
-        user_1_bal: 0,
-        user_2_bal: 0,
-        admin_bal: web3.toWei(blocks_to_buy * 200 + 2 * 200, 'wei') ,  // +1 one block at 2 USD
-        charity_bal: web3.toWei(blocks_to_buy * 800 + 2 * 800, 'wei'),  // +1 one block at 2 USD
-        contract_bal: 0,
-        contract_bal_eth: blocks_to_buy * 1000 + 2 * 1000,  // +1 one block at 2 USD
-        blocks_sold: blocks_to_buy + 1 // +1 one block at 2 USD
-    }
-    checkStateChange(before, after, deltas);
-  })
-}
 
 // ERC721. Transfer ownership by landlord (Cannot transfer when on sale) (10, 1)
   it("should let transfer block ownership (and permit when on sale)", async () => {
@@ -446,6 +323,132 @@ if (CHECK_PRICE_DOUBLING) {
     assert.equal(await me2.getBlockOwner.call(12, 1), new_landlord,                       
         "the block owner wasn't set");  
   })
+
+if (BUY_SELL_5_BLOCKS) {
+// buy 5 blocks (96, 100)
+  it("should let buy 5 blocks (bottom-right)", async () => {
+    const me2 = await MillionEther.deployed();
+    const buyer = user_1;
+    const before = await mehState(me2);
+
+    const tx = await me2.buyArea(96, 100, 100, 100, {from: buyer, value: web3.toWei(5000, 'wei'), gas: 4712388});
+    logGas(tx, "buyArea (5 blocks");
+
+    const after = await mehState(me2);
+    const deltas = {
+        user_1_bal: 0,
+        user_2_bal: 0,
+        admin_bal: web3.toWei(1000, 'wei'),
+        charity_bal: web3.toWei(4000, 'wei'),
+        contract_bal: 0,
+        contract_bal_eth: 5000,
+        blocks_sold: 5
+    }
+    checkStateChange(before, after, deltas);
+    assert.equal(await me2.getBlockOwner.call(100, 100), buyer,                       
+        "the block 1x1 owner wasn't set"); 
+    })
+
+// sell 5 blocks (96, 100)
+  it("should let sell blocks", async () => {
+    const me2 = await MillionEther.deployed();
+    const seller = user_1;
+    const buyer = user_2;
+    const before = await mehState(me2);
+
+    var tx = await me2.sellArea(96, 100, 100, 100, 2000, {from: seller, gas: 4712388});
+    logGas(tx, "sellArea (5 blocks");
+    tx = await me2.buyArea(96, 100, 100, 100, {from: buyer, value: web3.toWei(20000, 'wei'), gas: 4712388});
+    logGas(tx, "buyArea (5 blocks from a landlord");
+
+    const after = await mehState(me2);
+    const deltas = {
+        user_1_bal: 10000,
+        user_2_bal: 10000,
+        admin_bal: web3.toWei(0, 'wei'),
+        charity_bal: web3.toWei(0, 'wei'),
+        contract_bal: 0,
+        contract_bal_eth: 20000,
+        blocks_sold: 0
+    }
+    checkStateChange(before, after, deltas);
+
+    assert.equal(await me2.getBlockOwner.call(96, 100), buyer,                       
+        "first block owner wasn't set"); 
+    assert.equal(await me2.getBlockOwner.call(100, 100), buyer,                       
+        "last block owner wasn't set"); 
+  })
+}
+
+if (BUY_MIXED_BLOCKS) {
+// buy mixed blocks (0, 100)
+  it("should let buy mixed blocks (from crowdsale and from a landlord)", async () => {
+    const me2 = await MillionEther.deployed();
+    const seller = user_1;
+    const buyer = user_2;
+    const before = await mehState(me2);
+
+    var tx = await me2.buyArea(1, 99, 5, 99, {from: seller, value: web3.toWei(5000, 'wei'), gas: 4712388});
+    tx = await me2.sellArea(1, 99, 5, 99, 2000, {from: seller, gas: 4712388});
+    tx = await me2.buyArea(1, 98, 5, 100, {from: buyer, value: web3.toWei(20000, 'wei'), gas: 4712388});
+
+    const after = await mehState(me2);
+    const deltas = {
+        user_1_bal: 10000,
+        user_2_bal: 0,
+        admin_bal: web3.toWei(3000, 'wei'),
+        charity_bal: web3.toWei(12000, 'wei'),
+        contract_bal: 0,
+        contract_bal_eth: 25000,
+        blocks_sold: 15
+    }
+    checkStateChange(before, after, deltas);
+
+    assert.equal(await me2.getBlockOwner.call(1, 98), buyer,                       
+        "first block owner wasn't set"); 
+    assert.equal(await me2.getBlockOwner.call(5, 100), buyer,                       
+        "last block owner wasn't set"); 
+  })
+}
+
+if (CHECK_PRICE_DOUBLING) {
+// buy 10% of blocks (1, 8) - (40, 25)
+  it("should double price after 10% of blocks sold", async () => {
+    const me2 = await MillionEther.deployed();
+    const very_rich_buyer = user_1;
+    const before = await mehState(me2);
+
+    const blocks_to_buy = 1000 - before.blocks_sold;
+    const number_of_40_block_packs = Math.trunc(blocks_to_buy/40);
+    var i; var tx;
+    for (i = 0; i < number_of_40_block_packs; i++) { 
+        tx = await me2.buyArea(1, 10+i, 40, 10+i, {from: very_rich_buyer, value: web3.toWei(40000, 'wei'), gas: 6721975});
+    }
+    logGas(tx, "buyArea from owner (40 block");
+
+    const number_of_1_block_packs = blocks_to_buy % 40;
+    if (number_of_1_block_packs > 0) {
+       tx = await me2.buyArea(1, 9, number_of_1_block_packs, 9, {from: very_rich_buyer, value: web3.toWei(number_of_1_block_packs * 1000, 'wei'), gas: 6721975}); 
+    }
+
+    // buy block number 1001 at a doubled priced
+    tx = await me2.buyArea(1, 8, 1, 8, {from: very_rich_buyer, value: web3.toWei(2000, 'wei'), gas: 6721975}); 
+
+    const after = await mehState(me2);
+    const deltas = {
+        user_1_bal: 0,
+        user_2_bal: 0,
+        admin_bal: web3.toWei(blocks_to_buy * 200 + 2 * 200, 'wei') ,  // +1 one block at 2 USD
+        charity_bal: web3.toWei(blocks_to_buy * 800 + 2 * 800, 'wei'),  // +1 one block at 2 USD
+        contract_bal: 0,
+        contract_bal_eth: blocks_to_buy * 1000 + 2 * 1000,  // +1 one block at 2 USD
+        blocks_sold: blocks_to_buy + 1 // +1 one block at 2 USD
+    }
+    checkStateChange(before, after, deltas);
+  })
+}
+
+//
 
 
 // Paused 
