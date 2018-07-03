@@ -9,6 +9,13 @@ contract MarketInerface {
     function isOnSale(uint16) public view returns (bool) {}
 }
 
+contract RentalsInterface {
+    function isRentals() public returns (bool) {}
+    function rentOutBlock(uint16, uint) external {}
+    function rentBlock (address, uint16, uint) external {}
+    function rentPriceAndAvailability(uint16) public view returns (uint) {}
+}
+
 contract AdsInterface {
     function isAds() public returns (bool) {}
     function placeImage(address, uint8, uint8, uint8, uint8, string, string, string) external {}
@@ -18,7 +25,9 @@ contract MEHAccessControl is Pausable {
 
     bool public isMEH = true;
     MarketInerface market;
+    RentalsInterface rentals;
     AdsInterface ads;
+
 
     event LogContractUpgrade(address newAddress, string ContractName);
     
@@ -39,10 +48,10 @@ contract MEHAccessControl is Pausable {
         market = candidateContract;
     }
 
-    function adminSetRentals(address _address) external onlyOwner whenPaused {
-        MarketInerface candidateContract = MarketInerface(_address);
-        require(candidateContract.isMarket());
-        market = candidateContract;
+    function adminSetRentals(address _address) external onlyOwner { //whenPaused {    // TODO 
+        RentalsInterface candidateContract = RentalsInterface(_address);
+        require(candidateContract.isRentals());
+        rentals = candidateContract;
     }
 
     function adminSetAds(address _address) external onlyOwner { //whenPaused {    // TODO
