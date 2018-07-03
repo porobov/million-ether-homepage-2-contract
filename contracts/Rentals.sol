@@ -9,7 +9,7 @@ contract Rentals is MehModule {
     // deafaul
     /// @notice Nobidy can cancel rent untill rent period is over
     uint public rentPeriod = 1 days;  // and thus min rent period
-    uint public maxRentPeriod = 90 days;  // can be changed in settings 
+    uint public maxRentPeriod = 90;  // can be changed in settings 
 
     // Rent deals. Any block can have one rent deal.
     struct RentDeal {          
@@ -51,6 +51,7 @@ contract Rentals is MehModule {
         external
         onlyMeh
     {   
+        require(maxRentPeriod >= _numberOfPeriods);
         uint totalRent = rentPriceAndAvailability(_blockId) * _numberOfPeriods;
         address landlord = meh.ownerOf(_blockId);
         deductFrom(_renter, totalRent);
@@ -64,7 +65,8 @@ contract Rentals is MehModule {
 
     function isRented(uint16 _blockId) public view returns (bool) {
         RentDeal memory deal = blockIdToRentDeal[_blockId];
-        return ((deal.rentedFrom + deal.numberOfPeriods * rentPeriod) > now);
+        uint rentedTill = deal.rentedFrom + deal.numberOfPeriods * rentPeriod;
+        return (rentedTill > now);
     }
 
     function createRentDeal(uint16 _blockId, address _renter, uint _rentedFrom, uint _numberOfPeriods) private {
@@ -79,5 +81,5 @@ contract Rentals is MehModule {
         return blockIdToRentPrice[_blockId];
     }
 
-
+    //TODO admin setMaxRentPeriod
 }

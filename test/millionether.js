@@ -2,9 +2,12 @@
 // var OldeMillionEther = artifacts.require("./OldeMillionEther.sol");
 var MillionEther = artifacts.require("./MEH.sol");
 var Market = artifacts.require("./Market.sol");
+var Rentals = artifacts.require("./Rentals.sol");
 
-const BUY_SELL_5_BLOCKS = false;
-const BUY_MIXED_BLOCKS = false;
+const BASIC = true;
+const ERC721 = true;
+const BUY_SELL_5_BLOCKS = true;
+const BUY_MIXED_BLOCKS = true;
 const CHECK_PRICE_DOUBLING = false;
 
 contract('MillionEther', function(accounts) {
@@ -65,6 +68,18 @@ contract('MillionEther', function(accounts) {
         blocks_sold: 0
     }
 
+  async function assertThrows(foo, msg) {
+    var error = {};
+    error.message = "";
+    try {
+        const tx = await foo;
+    } catch (err) {
+        error = err
+    }
+    assert.equal(error.message.substring(43,49), "revert", msg);
+  }
+
+if (BASIC) {
 // buy 1 block (1, 1)
   it("should let buy block 1x1", async () => {
     const me2 = await MillionEther.deployed();
@@ -234,8 +249,9 @@ contract('MillionEther', function(accounts) {
     assert.equal(buyer_eth_bal_after.minus(buyer_eth_bal_before).toNumber(), before.user_1_bal.minus(paid_for_gas).toNumber(),                       
         "buyer didn't recieve all funds");
     })
+}
 
-
+if (ERC721) {
 // ERC721. Transfer ownership by landlord (Cannot transfer when on sale) (10, 1)
   it("should let transfer block ownership (and permit when on sale)", async () => {
     const me2 = await MillionEther.deployed();
@@ -323,6 +339,7 @@ contract('MillionEther', function(accounts) {
     assert.equal(await me2.getBlockOwner.call(12, 1), new_landlord,                       
         "the block owner wasn't set");  
   })
+}
 
 if (BUY_SELL_5_BLOCKS) {
 // buy 5 blocks (96, 100) - (100,100)
@@ -411,8 +428,107 @@ if (BUY_MIXED_BLOCKS) {
   })
 }
 
+
+// RENT OUT AND RENT BLOCKS ** // (70,1) - (80, 5)
+
+const MAX_RENT_PERIODS = 90;
+
+async function checkRentState(expected) {
+    const rentals = await Rentals.deployed();
+    const rent_price = await rentals.blockIdToRentPrice.call(getBlockId(70, 1)).toNumber();
+    const rent_deal = await rentals.blockIdToRentDeal.call(getBlockId(70, 1));
+
+    assert.equal(rent_price, expected.rent_price, "Rent price wasn't set correctly!");
+    assert.equal(rent_deal[0], expected.renter, "Renter wasn't set correctly!"); 
+    assert.equal(rent_deal[2].toNumber(), expected.numberOfPeriods, "Renter wasn't set correctly!"); 
+}
+
+// should let rent out and rent area (check balances as well) (70,1) - (71, 2)
+  it("should let rent out and rent area", async () => {
+    const me2 = await MillionEther.deployed();
+    const landlord = user_1;
+    const renter = user_2;
+    var tx = await me2.buyArea(70, 1, 71, 2, {from: landlord, value: web3.toWei(4000, 'wei'), gas: 4712388});
+
+    var before = await mehState(me2);
+    tx = await me2.rentOutArea(70, 1, 71, 2, 200, {from: landlord});
+    tx = await me2.rentArea(70, 1, 71, 2, 2, {from: renter, value: web3.toWei(1600, 'wei'), gas: 4712388});
+    var after = await mehState(me2);
+    var deltas = no_changes; deltas.user_1_bal = 1600; deltas.contract_bal_eth = 1600;
+    checkStateChange(before, after, deltas);
+    expected_rent_params = {
+        rent_price: web3.toWei(200, 'wei'),
+        renter: renter,
+        rentedFrom: 0,
+        numberOfPeriods: 2
+    }
+    checkRentState(expected_rent_params);
+  })
+
+// should permit illegal rent actions (72,1) - (72, 1)
+  it("should permit illegal rent out and rent actions", async () => {
+    const me2 = await MillionEther.deployed();
+    const landlord = user_1;
+    const some_guy = user_2;
+    const renter = user_3;
+    assertThrows(me2.rentOutArea(72, 1, 72, 1, 200, {from: some_guy, gas: 4712388}), 
+        "Rented out crowdsale block!");
+    assertThrows(me2.rentArea(72, 1, 72, 1, 1, {from: some_guy, value: web3.toWei(1, 'ether'), gas: 4712388}), 
+        "Rented crowdsale block!");
+
+    var tx = await me2.buyArea(72, 1, 72, 1, {from: landlord, value: web3.toWei(1000, 'wei'), gas: 4712388});
+    assertThrows(me2.rentOutArea(72, 1, 72, 1, 200, {from: some_guy, gas: 4712388}), 
+        "Rented out other landlords blocks!");
+    assertThrows(me2.rentArea(72, 1, 72, 1, 1, {from: some_guy, value: web3.toWei(1, 'ether'), gas: 4712388}), 
+        "Rented block which is not for rent yet!");
+
+    tx = await me2.rentOutArea(72, 1, 72, 1, 200, {from: landlord, gas: 4712388});
+    assertThrows(me2.rentArea(72, 1, 72, 1, 1, {from: landlord, value: web3.toWei(1, 'ether'), gas: 4712388}), 
+        "Rented own block!");
+    await assertThrows(me2.rentArea(72, 1, 72, 1, MAX_RENT_PERIODS + 1, {from: renter, value: web3.toWei(1, 'ether'), gas: 4712388}), 
+        "Rented for more than max rent periods!");
+
+    tx = await me2.rentArea(72, 1, 72, 1, 1, {from: renter, value: web3.toWei(1600, 'wei'), gas: 4712388});
+    assertThrows(me2.rentArea(72, 1, 72, 1, 1, {from: some_guy, value: web3.toWei(1, 'ether'), gas: 4712388}), 
+        "Rented block which is already rented!");
+  })
+
+
+// should let stop rent (73,1) - (73, 1)
+  it("should let stop rent", async () => {
+    const me2 = await MillionEther.deployed();
+    const landlord = user_1;
+    const some_guy = user_2;
+    const renter = user_3;
+
+    var tx = await me2.buyArea(73, 1, 73, 1, {from: landlord, value: web3.toWei(1000, 'wei'), gas: 4712388});
+    tx = await me2.rentOutArea(73, 1, 73, 1, 200, {from: landlord, gas: 4712388});
+    tx = await me2.rentOutArea(73, 1, 73, 1, 0, {from: landlord, gas: 4712388});
+    assertThrows(me2.rentArea(73, 1, 73, 1, 1, {from: some_guy, value: web3.toWei(1, 'ether'), gas: 4712388}), 
+        "Rented block which is not for rent already!");
+
+    // todo into own test suite
+    tx = await me2.rentOutArea(73, 1, 73, 1, 200, {from: landlord, gas: 4712388});
+    tx = await me2.rentArea(73, 1, 73, 1, 2, {from: renter, value: web3.toWei(400, 'wei'), gas: 4712388});
+    tx = await me2.rentOutArea(73, 1, 73, 1, 0, {from: landlord, gas: 4712388});
+    expected_rent_params = {
+        rent_price: 0,
+        renter: renter,
+        rentedFrom: 0,
+        numberOfPeriods: 2
+    }
+    checkRentState(expected_rent_params);
+    // todo try place image by landlord
+
+// should let rent area after previous rent expires 
+  })
+
+
+
+// ** PLACE ADS ** //
+
 // Place Ads (50, 1) - ()
-  it("should let owner of blocks to place ads", async () => {
+  it("should let landlord place ads", async () => {
     const me2 = await MillionEther.deployed();
     const advertiser = user_1;
 
@@ -421,9 +537,27 @@ if (BUY_MIXED_BLOCKS) {
     tx = await me2.placeImage(50, 1, 54, 4, "imageSourceUrl", "adUrl", "adText",  {from: advertiser, gas: 4712388});
 
     assert.equal(0, 0,                       
-        "first block owner wasn't set");  // TODO check actual event
+        "block owner wasn't set correctly");  // TODO check actual event
 
   })
+
+// should let renter place ads
+// should permit owner place ads on rented property
+// should let owner place ads after rent period is over
+// should permit anybody to place ads
+// 
+
+
+
+
+
+
+
+
+
+
+
+
 
 if (CHECK_PRICE_DOUBLING) {
 // buy 10% of blocks (1, 8) - (40, 25)

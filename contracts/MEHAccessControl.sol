@@ -38,6 +38,11 @@ contract MEHAccessControl is Pausable {
         _;
     }
 
+    modifier onlyBalanceOperators() {
+        require(msg.sender == address(market) || msg.sender == address(rentals));
+        _;
+    }
+
 // ** Admin set Access ** //
 
     // credits to cryptokittes!

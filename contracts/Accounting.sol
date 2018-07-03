@@ -32,11 +32,11 @@ contract Accounting is DSMath, MEHAccessControl {
 
     // ** ACCOUNTING ** //
 
-    function operatorDepositTo(address _recipient, uint _amount) external onlyMarket whenNotPaused {
+    function operatorDepositTo(address _recipient, uint _amount) external onlyBalanceOperators whenNotPaused {
         _depositTo(_recipient, _amount);
     }
 
-    function operatorDeductFrom(address _payer, uint _amount) external onlyMarket whenNotPaused {
+    function operatorDeductFrom(address _payer, uint _amount) external onlyBalanceOperators whenNotPaused {
         _deductFrom(_payer, _amount);
     }
 

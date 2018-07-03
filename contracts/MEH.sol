@@ -66,7 +66,7 @@ contract MEH is MehERC721, Accounting {
 // ** RENT OUT AND RENT BLOCKS ** //
 
     // @dev Rent out an area of blocks at coordinates [fromX, fromY, toX, toY]
-    // @notice if _rentPricePerPeriodWei = 0 then not for rent
+    // @notice INFOf _rentPricePerPeriodWei = 0 then not for rent
     function rentOutArea(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, uint _rentPricePerPeriodWei)  // TODO rentTo
         external
         whenNotPaused
