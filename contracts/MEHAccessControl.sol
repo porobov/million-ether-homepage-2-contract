@@ -14,6 +14,8 @@ contract RentalsInterface {
     function rentOutBlock(uint16, uint) external {}
     function rentBlock (address, uint16, uint) external {}
     function rentPriceAndAvailability(uint16) public view returns (uint) {}
+    function isRented(uint16) public view returns (bool) {}
+    function renterOf(uint16) public view returns (address) {}
 }
 
 contract AdsInterface {

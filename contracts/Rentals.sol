@@ -22,7 +22,7 @@ contract Rentals is MehModule {
     // Rent is allowed if price is set (price Per Period)
     mapping(uint16 => uint) public blockIdToRentPrice;
 
-    constructor(address _mehAddress) public {
+    constructor(address _mehAddress) public {  // TODO move to MehModule
         adminSetMeh(_mehAddress);
     }
 
@@ -79,6 +79,11 @@ contract Rentals is MehModule {
         require(isForRent(_blockId));
         require(!(isRented(_blockId)));
         return blockIdToRentPrice[_blockId];
+    }
+
+    function renterOf(uint16 _blockId) public view returns (address) {
+        require(isRented(_blockId));
+        return blockIdToRentDeal[_blockId].renter;
     }
 
     //TODO admin setMaxRentPeriod

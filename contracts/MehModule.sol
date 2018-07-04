@@ -8,6 +8,7 @@ import "./MEH.sol";
 contract MehModule is Ownable, Destructible, HasNoEther {
 
     MEH  meh;
+    RentalsInterface rentals;
 
     modifier onlyMeh() {
         require(msg.sender == address(meh));
@@ -18,5 +19,12 @@ contract MehModule is Ownable, Destructible, HasNoEther {
         MEH candidateContract = MEH(_address);
         require(candidateContract.isMEH());
         meh = candidateContract;
+    }
+
+    function adminSetRentals(address _address) external onlyOwner { //whenPaused {    // TODO 
+        // TODO this.address is not rentals
+        RentalsInterface candidateContract = RentalsInterface(_address);
+        require(candidateContract.isRentals());
+        rentals = candidateContract;
     }
 }

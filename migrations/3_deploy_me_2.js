@@ -15,14 +15,20 @@ module.exports = function(deployer) {
     //     return oracleProxy.setClient(Market.address);
     // });
   });
+
   deployer.deploy(Rentals, MEH.address).then(() => {
     MEH.deployed().then(meh => {
         return meh.adminSetRentals(Rentals.address);
     });
   });
+
   deployer.deploy(Ads, MEH.address).then(() => {
     MEH.deployed().then(meh => {
-        return meh.adminSetAds(Ads.address);
+    return meh.adminSetAds(Ads.address);
     });
+    // Ads.deployed().then(ads => {
+    //     return ads.adminSetRentals(Rentals.address);
+    // });
   });
-};
+
+}

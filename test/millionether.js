@@ -4,10 +4,10 @@ var MillionEther = artifacts.require("./MEH.sol");
 var Market = artifacts.require("./Market.sol");
 var Rentals = artifacts.require("./Rentals.sol");
 
-const BASIC = true;
-const ERC721 = true;
-const BUY_SELL_5_BLOCKS = true;
-const BUY_MIXED_BLOCKS = true;
+const BASIC = false;
+const ERC721 = false;
+const BUY_SELL_5_BLOCKS = false;
+const BUY_MIXED_BLOCKS = false;
 const CHECK_PRICE_DOUBLING = false;
 
 contract('MillionEther', function(accounts) {
@@ -433,14 +433,14 @@ if (BUY_MIXED_BLOCKS) {
 
 const MAX_RENT_PERIODS = 90;
 
-async function checkRentState(expected) {
-    const rentals = await Rentals.deployed();
-    const rent_price = await rentals.blockIdToRentPrice.call(getBlockId(70, 1)).toNumber();
-    const rent_deal = await rentals.blockIdToRentDeal.call(getBlockId(70, 1));
+async function checkRentState(blockID, expected) {
+    var rentals = await Rentals.deployed();
+    var rent_price = await rentals.blockIdToRentPrice.call(blockID);
+    var rent_deal = await rentals.blockIdToRentDeal.call(blockID);
 
     assert.equal(rent_price, expected.rent_price, "Rent price wasn't set correctly!");
     assert.equal(rent_deal[0], expected.renter, "Renter wasn't set correctly!"); 
-    assert.equal(rent_deal[2].toNumber(), expected.numberOfPeriods, "Renter wasn't set correctly!"); 
+    assert.equal(rent_deal[2].toNumber(), expected.numberOfPeriods, "Number of periods wasn't set correctly!"); 
 }
 
 // should let rent out and rent area (check balances as well) (70,1) - (71, 2)
@@ -456,13 +456,13 @@ async function checkRentState(expected) {
     var after = await mehState(me2);
     var deltas = no_changes; deltas.user_1_bal = 1600; deltas.contract_bal_eth = 1600;
     checkStateChange(before, after, deltas);
-    expected_rent_params = {
+    var expected_rent_params = {
         rent_price: web3.toWei(200, 'wei'),
         renter: renter,
         rentedFrom: 0,
         numberOfPeriods: 2
     }
-    checkRentState(expected_rent_params);
+    checkRentState(getBlockId(70, 1), expected_rent_params);
   })
 
 // should permit illegal rent actions (72,1) - (72, 1)
@@ -507,18 +507,20 @@ async function checkRentState(expected) {
     assertThrows(me2.rentArea(73, 1, 73, 1, 1, {from: some_guy, value: web3.toWei(1, 'ether'), gas: 4712388}), 
         "Rented block which is not for rent already!");
 
-    // todo into own test suite
     tx = await me2.rentOutArea(73, 1, 73, 1, 200, {from: landlord, gas: 4712388});
     tx = await me2.rentArea(73, 1, 73, 1, 2, {from: renter, value: web3.toWei(400, 'wei'), gas: 4712388});
     tx = await me2.rentOutArea(73, 1, 73, 1, 0, {from: landlord, gas: 4712388});
-    expected_rent_params = {
-        rent_price: 0,
+    var expected_rent_params = {
+        rent_price: web3.toWei(0, 'wei'),
         renter: renter,
         rentedFrom: 0,
         numberOfPeriods: 2
     }
-    checkRentState(expected_rent_params);
-    // todo try place image by landlord
+    checkRentState(getBlockId(73, 1), expected_rent_params);
+    assertThrows(me2.placeImage(73, 1, 73, 1, "imageSourceUrl", "adUrl", "adText",  {from: landlord, gas: 4712388}),
+        "Landlord was able to place image when rent is not expired!");
+    tx = await me2.placeImage(73, 1, 73, 1, "imageSourceUrl", "adUrl", "adText",  {from: renter, gas: 4712388});
+    // todo check event Renter couldn't place image when landlord canceled rent, but it hadn't expired yet;/
 
 // should let rent area after previous rent expires 
   })
@@ -545,6 +547,7 @@ async function checkRentState(expected) {
 // should permit owner place ads on rented property
 // should let owner place ads after rent period is over
 // should permit anybody to place ads
+// place image in mixed area
 // 
 
 
