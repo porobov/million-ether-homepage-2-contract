@@ -1,6 +1,6 @@
 var MEH = artifacts.require("./MEH.sol");
 var Market = artifacts.require("./Market.sol");
-var Rentals = artifacts.require("./Rentals.sol");
+var RentalsDisposable = artifacts.require("../test/mockups/RentalsDisposable.sol");
 var Ads = artifacts.require("./Ads.sol");
 var OracleProxy = artifacts.require("../test/mockups/OracleProxy.sol");
 var OldeMillionEther = artifacts.require("../test/mockups/OldeMillionEther.sol");
@@ -16,9 +16,9 @@ module.exports = function(deployer) {
     // });
   });
 
-  deployer.deploy(Rentals, MEH.address).then(() => {
+  deployer.deploy(RentalsDisposable, MEH.address).then(() => {
     MEH.deployed().then(meh => {
-        return meh.adminSetRentals(Rentals.address);
+        return meh.adminSetRentals(RentalsDisposable.address);
     });
   });
 
@@ -26,9 +26,6 @@ module.exports = function(deployer) {
     MEH.deployed().then(meh => {
     return meh.adminSetAds(Ads.address);
     });
-    // Ads.deployed().then(ads => {
-    //     return ads.adminSetRentals(Rentals.address);
-    // });
   });
 
 }

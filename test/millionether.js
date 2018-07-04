@@ -2,12 +2,12 @@
 // var OldeMillionEther = artifacts.require("./OldeMillionEther.sol");
 var MillionEther = artifacts.require("./MEH.sol");
 var Market = artifacts.require("./Market.sol");
-var Rentals = artifacts.require("./Rentals.sol");
+var Rentals = artifacts.require("../test/mockups/RentalsDisposable.sol");
 
-const BASIC = false;
-const ERC721 = false;
-const BUY_SELL_5_BLOCKS = false;
-const BUY_MIXED_BLOCKS = false;
+const BASIC = true;
+const ERC721 = true;
+const BUY_SELL_5_BLOCKS = true;
+const BUY_MIXED_BLOCKS = true;
 const CHECK_PRICE_DOUBLING = false;
 
 contract('MillionEther', function(accounts) {
@@ -78,6 +78,18 @@ contract('MillionEther', function(accounts) {
     }
     assert.equal(error.message.substring(43,49), "revert", msg);
   }
+
+  // console.log(web3.eth.getBlock(tx.receipt.blockNumber));
+
+
+
+
+
+
+
+
+
+
 
 if (BASIC) {
 // buy 1 block (1, 1)
@@ -429,6 +441,20 @@ if (BUY_MIXED_BLOCKS) {
 }
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // RENT OUT AND RENT BLOCKS ** // (70,1) - (80, 5)
 
 const MAX_RENT_PERIODS = 90;
@@ -497,6 +523,7 @@ async function checkRentState(blockID, expected) {
 // should let stop rent (73,1) - (73, 1)
   it("should let stop rent", async () => {
     const me2 = await MillionEther.deployed();
+    const rentMock = await Rentals.deployed();
     const landlord = user_1;
     const some_guy = user_2;
     const renter = user_3;
@@ -517,38 +544,85 @@ async function checkRentState(blockID, expected) {
         numberOfPeriods: 2
     }
     checkRentState(getBlockId(73, 1), expected_rent_params);
-    assertThrows(me2.placeImage(73, 1, 73, 1, "imageSourceUrl", "adUrl", "adText",  {from: landlord, gas: 4712388}),
-        "Landlord was able to place image when rent is not expired!");
-    tx = await me2.placeImage(73, 1, 73, 1, "imageSourceUrl", "adUrl", "adText",  {from: renter, gas: 4712388});
-    // todo check event Renter couldn't place image when landlord canceled rent, but it hadn't expired yet;/
-
-// should let rent area after previous rent expires 
+    tx = await rentMock.fastforwardRent(getBlockId(73, 1), {from: landlord, gas: 4712388});
+    assertThrows(me2.rentArea(73, 1, 73, 1, 1, {from: some_guy, value: web3.toWei(1, 'ether'), gas: 4712388}), 
+        "Rented block which is not for rent already!");
   })
 
+// should let rent area after previous rent expires (74, 1) - (74, 2)
+  it("should let rent area again after previous rent expires", async () => {
+    const me2 = await MillionEther.deployed();
+    const rentMock = await Rentals.deployed();
+    const landlord = user_1;
+    const some_guy = user_2;
+    const renter = user_3;
+    var tx = await me2.buyArea(74, 1, 74, 2, {from: landlord, value: web3.toWei(1000, 'wei'), gas: 4712388});
+    
+    var before = await mehState(me2);
+
+    tx = await me2.rentOutArea(74, 1, 74, 2, 200, {from: landlord, gas: 4712388});
+    tx = await me2.rentArea(74, 1, 74, 2, 2, {from: renter, value: web3.toWei(800, 'wei'), gas: 4712388})
+    assertThrows(me2.rentArea(74, 1, 74, 2, 1, {from: some_guy, value: web3.toWei(1, 'ether'), gas: 4712388}), 
+        "Rented block which is rented already!");
+    tx = await rentMock.fastforwardRent(getBlockId(74, 1), {from: landlord, gas: 4712388});
+    assertThrows(me2.rentArea(74, 1, 74, 2, 1, {from: some_guy, value: web3.toWei(1, 'ether'), gas: 4712388}), 
+        "Rented block which is rented already!");
+    tx = await rentMock.fastforwardRent(getBlockId(74, 2), {from: landlord, gas: 4712388});
+    tx = await me2.rentArea(74, 1, 74, 2, 2, {from: some_guy, value: web3.toWei(800, 'wei'), gas: 4712388});
+    var after = await mehState(me2);
+    var deltas = no_changes; deltas.user_1_bal = 1600; deltas.contract_bal_eth = 1600;
+    checkStateChange(before, after, deltas);
+    var expected_rent_params = {
+        rent_price: web3.toWei(200, 'wei'),
+        renter: some_guy,
+        rentedFrom: 0,
+        numberOfPeriods: 2
+    }
+    checkRentState(getBlockId(74, 1), expected_rent_params);
+  })
+
+// should let rent area after previous rent expires (75, 1) - (75, 2)
+  it("should let landlord place images only when current rent expires", async () => {
+    const me2 = await MillionEther.deployed();
+    const rentMock = await Rentals.deployed();
+    const landlord = user_1;
+    const renter = user_3;
+    var tx = await me2.buyArea(75, 1, 75, 2, {from: landlord, value: web3.toWei(1000, 'wei'), gas: 4712388});
+    
+    tx = await me2.rentOutArea(75, 1, 75, 2, 200, {from: landlord, gas: 4712388});
+    tx = await me2.rentArea(75, 1, 75, 2, 2, {from: renter, value: web3.toWei(800, 'wei'), gas: 4712388})
+    assertThrows(me2.placeImage(75, 1, 75, 2, "imageSourceUrl", "adUrl", "adText",  {from: landlord, gas: 4712388}),
+        "Landlord was able to place image when rent is not expired!");
+    tx = await me2.placeImage(75, 1, 75, 2, "imageSourceUrl", "adUrl", "adText",  {from: renter, gas: 4712388});
+    tx = await rentMock.fastforwardRent(getBlockId(75, 1), {from: landlord, gas: 4712388});
+    tx = await rentMock.fastforwardRent(getBlockId(75, 2), {from: landlord, gas: 4712388});
+    assertThrows(me2.placeImage(75, 1, 75, 2, "imageSourceUrl", "adUrl", "adText",  {from: renter, gas: 4712388}),
+        "Landlord was able to place image when rent is not expired!");
+    tx = await me2.placeImage(75, 1, 75, 2, "imageSourceUrl", "adUrl", "adText",  {from: landlord, gas: 4712388});
+  })
 
 
 // ** PLACE ADS ** //
 
 // Place Ads (50, 1) - ()
-  it("should let landlord place ads", async () => {
+// should let renter place ads - covered at rent section
+// should permit owner place ads on rented property - covered at rent section
+// should let owner place ads after rent period is over - covered at rent section
+  it("should let landlord place images", async () => {
     const me2 = await MillionEther.deployed();
     const advertiser = user_1;
+    const some_guy = user_2;
 
     var tx = await me2.buyArea(50, 1, 54, 4, {from: advertiser, value: web3.toWei(20000, 'wei'), gas: 4712388});
-
+    assertThrows(me2.placeImage(50, 1, 54, 4, "imageSourceUrl", "adUrl", "adText",  {from: some_guy, gas: 4712388}),
+        "Should've permited anybody to place ads!");
     tx = await me2.placeImage(50, 1, 54, 4, "imageSourceUrl", "adUrl", "adText",  {from: advertiser, gas: 4712388});
 
     assert.equal(0, 0,                       
         "block owner wasn't set correctly");  // TODO check actual event
-
   })
 
-// should let renter place ads
-// should permit owner place ads on rented property
-// should let owner place ads after rent period is over
-// should permit anybody to place ads
 // place image in mixed area
-// 
 
 
 
