@@ -1,13 +1,18 @@
+require('truffle-test-utils').init();
+
 // var MEStorage = artifacts.require("./OwnershipLedger.sol");
 // var OldeMillionEther = artifacts.require("./OldeMillionEther.sol");
 var MillionEther = artifacts.require("./MEH.sol");
 var Market = artifacts.require("./Market.sol");
+var Ads = artifacts.require("./Ads.sol");
 var Rentals = artifacts.require("../test/mockups/RentalsDisposable.sol");
 
-const BASIC = true;
-const ERC721 = true;
-const BUY_SELL_5_BLOCKS = true;
-const BUY_MIXED_BLOCKS = true;
+const BASIC = false;
+const ERC721 = false;
+const BUY_SELL_5_BLOCKS = false;
+const BUY_MIXED_BLOCKS = false;
+const RENT = false;
+const ADS = true;
 const CHECK_PRICE_DOUBLING = false;
 
 contract('MillionEther', function(accounts) {
@@ -77,6 +82,16 @@ contract('MillionEther', function(accounts) {
         error = err
     }
     assert.equal(error.message.substring(43,49), "revert", msg);
+  }
+
+  //credits https://github.com/OpenZeppelin/openzeppelin-solidity/blob/f4228f1b49d6d505d3311e5d962dfb0febdf61df/test/Bounty.test.js#L82-L109
+  function awaitEvent (event, handler) {
+      return new Promise((resolve, reject) => {
+        function wrappedHandler (...args) {
+          Promise.resolve(handler(...args)).then(resolve).catch(reject);
+        }
+        event.watch(wrappedHandler);
+      });
   }
 
   // console.log(web3.eth.getBlock(tx.receipt.blockNumber));
@@ -454,7 +469,7 @@ if (BUY_MIXED_BLOCKS) {
 
 
 
-
+if (RENT) {
 // RENT OUT AND RENT BLOCKS ** // (70,1) - (80, 5)
 
 const MAX_RENT_PERIODS = 90;
@@ -600,11 +615,12 @@ async function checkRentState(blockID, expected) {
         "Landlord was able to place image when rent is not expired!");
     tx = await me2.placeImage(75, 1, 75, 2, "imageSourceUrl", "adUrl", "adText",  {from: landlord, gas: 4712388});
   })
+}
 
-
+if (ADS) {
 // ** PLACE ADS ** //
 
-// Place Ads (50, 1) - ()
+// Place Ads (50, 1) - (54, 4)
 // should let renter place ads - covered at rent section
 // should permit owner place ads on rented property - covered at rent section
 // should let owner place ads after rent period is over - covered at rent section
@@ -613,21 +629,39 @@ async function checkRentState(blockID, expected) {
     const advertiser = user_1;
     const some_guy = user_2;
 
-    var tx = await me2.buyArea(50, 1, 54, 4, {from: advertiser, value: web3.toWei(20000, 'wei'), gas: 4712388});
+    await me2.buyArea(50, 1, 54, 4, {from: advertiser, value: web3.toWei(20000, 'wei'), gas: 4712388});
     assertThrows(me2.placeImage(50, 1, 54, 4, "imageSourceUrl", "adUrl", "adText",  {from: some_guy, gas: 4712388}),
         "Should've permited anybody to place ads!");
-    tx = await me2.placeImage(50, 1, 54, 4, "imageSourceUrl", "adUrl", "adText",  {from: advertiser, gas: 4712388});
+    await me2.placeImage(50, 1, 54, 4, "imageSourceUrl", "adUrl", "adText",  {from: advertiser, gas: 4712388});
 
-    assert.equal(0, 0,                       
-        "block owner wasn't set correctly");  // TODO check actual event
   })
 
+
 // place image in mixed area
+  it("should let place image in mixed area (owned and rented)", async () => {
+    const me2 = await MillionEther.deployed();
+    const ads = await Ads.deployed();
+    const advertiser = user_1;
+    const some_guy = user_2;
 
+    let event = ads.LogImage({});
+    
+    let watcher = async function (err, result) {
+        event.stopWatching();
+        if (err) { throw err; }
+        assert.equal(result.event, "LogImage", "Wrong event!")
+        assert.equal(result.args.publisher, advertiser, "Wrong publisher!")
+    }
 
-
-
-
+    await me2.buyArea(55, 1, 56, 2, {from: advertiser, value: web3.toWei(4000, 'wei'), gas: 4712388});
+    await me2.buyArea(55, 3, 56, 4, {from: some_guy, value: web3.toWei(4000, 'wei'), gas: 4712388});
+    await me2.rentOutArea(55, 3, 56, 4, 200, {from: some_guy, gas: 4712388});
+    await me2.rentArea(55, 3, 56, 4, 2, {from: advertiser, value: web3.toWei(1600, 'wei'), gas: 4712388})
+    await me2.placeImage(55, 1, 56, 4, "imageSourceUrl", "adUrl", "adText",  {from: advertiser, gas: 4712388});
+    await awaitEvent(event, watcher);
+    
+  })
+}
 
 
 
@@ -674,25 +708,6 @@ if (CHECK_PRICE_DOUBLING) {
 }
 
 
-
-
-// Paused 
-// Cannot buy-sell 
-// ERC Cannot transfer when paused 
-// Cannot approve
-// Cannot withdraw 
-// Cannot setApprovalForAll
-// Withdraw
-
-// Amdmin
-// adminSaveFunds
-// transfer ownership of contract 
-// transfer charity
-// change Market
-// change Rentals
-// change Images
-// set Oracle
-
 // Admin import old block
   // it("should import old block", async () => {
   //   const me2 = await MillionEther.deployed();
@@ -708,4 +723,29 @@ if (CHECK_PRICE_DOUBLING) {
   //       "first_block owner wasn't set correctly");
 
   //   })
+
+
+
+// Amdmin
+// adminSaveFunds
+// transfer ownership of contract 
+// transfer charity
+// change Market
+// change Rentals
+// change Images
+// set Oracle
+
+
+
+
+
+// Paused 
+// Cannot buy-sell 
+// ERC Cannot transfer when paused 
+// Cannot approve
+// Cannot withdraw 
+// Cannot setApprovalForAll
+// Withdraw
+
+
 });
