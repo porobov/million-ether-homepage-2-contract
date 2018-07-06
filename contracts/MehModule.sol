@@ -3,9 +3,10 @@ pragma solidity ^0.4.18;
 import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
 import "openzeppelin-solidity/contracts/ownership/HasNoEther.sol";
 import "openzeppelin-solidity/contracts/lifecycle/Destructible.sol";
+import "openzeppelin-solidity/contracts/lifecycle/Pausable.sol";
 import "./MEH.sol";
 
-contract MehModule is Ownable, Destructible, HasNoEther {
+contract MehModule is Ownable, Pausable, Destructible, HasNoEther {
 
     MEH  meh;
     RentalsInterface rentals;
@@ -21,8 +22,9 @@ contract MehModule is Ownable, Destructible, HasNoEther {
         meh = candidateContract;
     }
 
+    // warn: when upgrading rentals, pause everything and update ads.sol reference to rentals first
     function adminSetRentals(address _address) external onlyOwner { //whenPaused {    // TODO 
-        // TODO this.address is not rentals
+        // // TODO this.address is not rentals
         RentalsInterface candidateContract = RentalsInterface(_address);
         require(candidateContract.isRentals());
         rentals = candidateContract;

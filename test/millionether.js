@@ -3,14 +3,19 @@ var MillionEther = artifacts.require("./MEH.sol");
 var Market = artifacts.require("./Market.sol");
 var Ads = artifacts.require("./Ads.sol");
 var Rentals = artifacts.require("../test/mockups/RentalsDisposable.sol");
+var OracleProxy = artifacts.require("../test/mockups/OracleProxy.sol");
+
+var OracleProxyStub = artifacts.require("../test/mockups/OracleProxyStub.sol");
+var MarketStub = artifacts.require("../test/mockups/MarketStub.sol");
+
 
 const BASIC = false;
 const ERC721 = false;
 const BUY_SELL_5_BLOCKS = false;
 const BUY_MIXED_BLOCKS = false;
 const RENT = false;
-const ADS = true;
-const ADMIN = true;
+const ADS = false;
+const ADMIN = false;
 const CHECK_PRICE_DOUBLING = false;
 
 contract('MillionEther', function(accounts) {
@@ -77,7 +82,7 @@ contract('MillionEther', function(accounts) {
     try {
         const tx = await foo;
     } catch (err) {
-        error = err
+        error = err;
     }
     console.log(error.message);
     assert.equal(error.message.substring(43,49), "revert", msg);
@@ -698,6 +703,7 @@ if (CHECK_PRICE_DOUBLING) {
 }
 
 
+if(ADMIN) {
 // Admin import old block (19, 19) - (20, 20)
   it("should import old block", async () => {
     const me2 = await MillionEther.deployed();
@@ -720,12 +726,12 @@ if (CHECK_PRICE_DOUBLING) {
         "first_block owner wasn't set correctly");
     })
 
-
-if(ADMIN) {
-// Paused (1, 30) 
+// Paused (1, 30) - (1, 31)
   it("should pause-unpause contracts", async () => {
     const me2 = await MillionEther.deployed();
-    // const market = await Market.deployed();
+    const market = await Market.deployed();
+    const rentals = await Rentals.deployed();
+    const ads = await Ads.deployed();
     const buyer = user_1;
     const renter = user_2;
 
@@ -734,14 +740,40 @@ if(ADMIN) {
     tx = await me2.rentOutArea(1, 30, 1, 30, 200, {from: buyer, gas: 4712388});
 
     assertThrows(me2.pause({from: buyer, gas: 4712388}),
-        "Paused by some guy!");
+        "Paused me2 by some guy!");
+    assertThrows(market.pause({from: buyer, gas: 4712388}),
+        "Paused market by some guy!");
+    assertThrows(rentals.pause({from: buyer, gas: 4712388}),
+        "Paused rentals by some guy!");
+    assertThrows(ads.pause({from: buyer, gas: 4712388}),
+        "Paused ads by some guy!");
+
+    // pause-unpause modules
+    await market.pause({from: admin, gas: 4712388});
+    await rentals.pause({from: admin, gas: 4712388});
+    await ads.pause({from: admin, gas: 4712388});
+    assertThrows(me2.placeImage(1, 30, 1, 30, "imageSourceUrl", "adUrl", "adText",  {from: buyer, gas: 4712388}),
+        "Should've permited to place ads when paused!");
+    assertThrows(me2.sellArea(1, 30, 1, 30, 2, {from: buyer, gas: 4712388}),
+        "Sold a block when paused!");
+    assertThrows(me2.rentOutArea(1, 30, 1, 30, 100, {from: buyer}),
+        "Rented out a block when paused!");
+    assertThrows(me2.rentArea(1, 30, 1, 30, 2, {from: renter, value: web3.toWei(1600, 'wei'), gas: 4712388}),
+        "Rented a block when paused!");
+    assertThrows(me2.buyArea(1, 31, 1, 31, {from: buyer, value: web3.toWei(1000, 'wei'), gas: 4712388}),
+        "Bought a block when paused!");
+    await market.unpause({from: admin, gas: 4712388});
+    await rentals.unpause({from: admin, gas: 4712388});
+    await ads.unpause({from: admin, gas: 4712388});
+
+    // pause-unpause main
     await me2.pause({from: admin, gas: 4712388});
     assertThrows(me2.withdraw({from: buyer, gas: 4712388}),
         "withdrawed when paused!");
     assertThrows(me2.placeImage(1, 30, 1, 30, "imageSourceUrl", "adUrl", "adText",  {from: buyer, gas: 4712388}),
         "Should've permited to place ads when paused!");
-    // assertThrows(me2.safeTransferFrom(buyer, renter, getBlockId(1, 30), {from: buyer, gas: 4712388}),
-    //     "Safe Transfered block when paused!");    
+    assertThrows(me2.safeTransferFrom(buyer, renter, getBlockId(1, 30), {from: buyer, gas: 4712388}),
+        "Safe Transfered block when paused!");    
     assertThrows(me2.approve(renter, getBlockId(1, 30), {from: buyer, gas: 4712388}),
         "Approved block transfer when paused!");    
     assertThrows(me2.setApprovalForAll(renter, true, {from: buyer, gas: 4712388}),
@@ -758,20 +790,50 @@ if(ADMIN) {
     })
 }
 
-// pause-unpause part by part?? 
+// Admin: settings
+
+// TODO admin setMaxRentPeriod
+  it("Should let admin (and oonly admin) adjust settings", async () => {
+    const me2 = await MillionEther.deployed();
+    const market = await Market.deployed();
+    
+    // const rentals = await Rentals.deployed();
+    // const ads = await Ads.deployed();
+    const buyer = user_1;
+    const renter = user_2;
+
+    // set Oracle
+    const new_oracle_proxy = await OracleProxyStub.deployed();
+    assertThrows(market.adminSetOracle(OracleProxyStub.address, {from: buyer, gas: 4712388}),
+        "Some guy just set new Oracle!");
+    await market.adminSetOracle(OracleProxyStub.address, {from: admin, gas: 4712388});
+    // todo - check price from meh assert.equal(await new_oracle_proxy.oneCentInWei.call(), 12345, "Wrond one Cent In Wei from new oracle");
+    await market.adminSetOracle(OracleProxy.address, {from: admin, gas: 4712388});
+
+    // set Market
+    const new_market = await MarketStub.deployed(); 
+    assertThrows(me2.adminSetMarket(new_market.address, {from: buyer, gas: 4712388}),
+        "Some guy just set new Oracle!");
+    await me2.adminSetMarket(new_market.address, {from: admin, gas: 4712388});
+    // todo - try some foo from meh assert.equal(await new_market.charityPayed.call(), 12345, "Wrond one Cent In Wei from new oracle");
+    await me2.adminSetMarket(market.address, {from: admin, gas: 4712388});
+
+    // adminSetRentals
+    // adminSetAds
+  })
+
+  it("Following best programming practicies, just some random empty test without which assertThrows just doesn't work properly for some unknown reason...", async () => {
+  })
+
+// transfer charity
 
 // Admin: emergency
-// set Oracle
-// change Market
-// change Rentals
-// change Images
 // adminRescueFunds
 
 // Admin: transfer ownreship
-// transfer ownership of contract 
-// transfer charity
 
-// check all necessary events
+
+// TODO check all necessary events
 
 
 });

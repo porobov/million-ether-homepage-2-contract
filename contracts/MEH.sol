@@ -153,5 +153,4 @@ contract MEH is MehERC721, Accounting {
     }
     // Emergency
     //TODO withdraw all
-    //TODO pause-upause
 }

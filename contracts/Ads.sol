@@ -14,6 +14,7 @@ contract Ads is MehModule {
 
     constructor(address _mehAddress) public {
         adminSetMeh(_mehAddress);
+        // RentalsInterface rentals = meh.rentals();
     }
 
 // ** PLACE IMAGES ** //
@@ -67,6 +68,7 @@ contract Ads is MehModule {
     ) 
         external
         onlyMeh
+        whenNotPaused
     {   
         isAllowedToAdvertise(advertiser, fromX, fromY, toX, toY);
         numImages++;

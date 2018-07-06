@@ -90,7 +90,7 @@ contract Market is MehModule, DSMath {
     }
 
     function transferFrom(address _from, address _to, uint16 _blockId) internal {
-        meh.safeTransferFrom(_from, _to, _blockId);
+        meh.transferFrom(_from, _to, _blockId);  // safeTransfer has external call
         return;
     }
 
@@ -114,7 +114,7 @@ contract Market is MehModule, DSMath {
 
 
     function _buyBlock(address _buyer, uint16 _blockId)
-        external onlyMeh
+        external onlyMeh whenNotPaused
     {
         uint blockPrice = 0;
         if (exists(_blockId)) {
@@ -144,7 +144,7 @@ contract Market is MehModule, DSMath {
 
     /// @dev Trnsfer blockId to market, set or update price tag. Return block to seller.
     /// @notice _sellPriceWei = 0 - cancel sale, return blockId to seller
-    function _sellBlock(uint16 _blockId, uint _sellPriceWei) external onlyMeh {
+    function _sellBlock(uint16 _blockId, uint _sellPriceWei) external onlyMeh whenNotPaused {
         setSellPrice(_blockId, _sellPriceWei);
     }
 
@@ -171,7 +171,7 @@ contract Market is MehModule, DSMath {
     }
 
     // import old contract blocks
-    function adminImportOldMEBlock(uint8 x, uint8 y) public onlyOwner {
+    function adminImportOldMEBlock(uint8 x, uint8 y) external onlyOwner {
         uint16 blockId = meh.blockID(x, y);
         require(!(exists(blockId)));
         (address oldLandlord, uint i, uint s) = oldMillionEther.getBlockInfo(x, y);  // WARN! sell price s is in wei

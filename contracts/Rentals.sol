@@ -42,6 +42,7 @@ contract Rentals is MehModule {
     function rentOutBlock(uint16 _blockId, uint _rentPricePerPeriodWei) 
         external
         onlyMeh
+        whenNotPaused
     {   
         blockIdToRentPrice[_blockId] = _rentPricePerPeriodWei;
     }
@@ -50,6 +51,7 @@ contract Rentals is MehModule {
     function rentBlock (address _renter, uint16 _blockId, uint _numberOfPeriods)
         external
         onlyMeh
+        whenNotPaused
     {   
         require(maxRentPeriod >= _numberOfPeriods);
         uint totalRent = rentPriceAndAvailability(_blockId) * _numberOfPeriods;
