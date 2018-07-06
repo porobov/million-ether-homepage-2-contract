@@ -87,6 +87,7 @@ contract MEH is MehERC721, Accounting {
     function rentArea(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, uint _numberOfPeriods)  // TODO RentFrom
         external
         payable
+        whenNotPaused
     {   
         require(isLegalCoordinates(fromX, fromY, toX, toY));
         require(msg.value >= rentPriceTotal(fromX, fromY, toX, toY, _numberOfPeriods));
@@ -115,7 +116,6 @@ contract MEH is MehERC721, Accounting {
         string adUrl, 
         string adText) 
         external
-        payable
         whenNotPaused
     {   
         require(isLegalCoordinates(fromX, fromY, toX, toY));

@@ -1,7 +1,4 @@
-require('truffle-test-utils').init();
-
-// var MEStorage = artifacts.require("./OwnershipLedger.sol");
-// var OldeMillionEther = artifacts.require("./OldeMillionEther.sol");
+var OldeMillionEther = artifacts.require("../test/mockups/OldeMillionEther.sol");
 var MillionEther = artifacts.require("./MEH.sol");
 var Market = artifacts.require("./Market.sol");
 var Ads = artifacts.require("./Ads.sol");
@@ -13,6 +10,7 @@ const BUY_SELL_5_BLOCKS = false;
 const BUY_MIXED_BLOCKS = false;
 const RENT = false;
 const ADS = true;
+const ADMIN = true;
 const CHECK_PRICE_DOUBLING = false;
 
 contract('MillionEther', function(accounts) {
@@ -81,6 +79,7 @@ contract('MillionEther', function(accounts) {
     } catch (err) {
         error = err
     }
+    console.log(error.message);
     assert.equal(error.message.substring(43,49), "revert", msg);
   }
 
@@ -95,15 +94,6 @@ contract('MillionEther', function(accounts) {
   }
 
   // console.log(web3.eth.getBlock(tx.receipt.blockNumber));
-
-
-
-
-
-
-
-
-
 
 
 if (BASIC) {
@@ -708,44 +698,80 @@ if (CHECK_PRICE_DOUBLING) {
 }
 
 
-// Admin import old block
-  // it("should import old block", async () => {
-  //   const me2 = await MillionEther.deployed();
-  //   const market = await Market.deployed();
+// Admin import old block (19, 19) - (20, 20)
+  it("should import old block", async () => {
+    const me2 = await MillionEther.deployed();
+    const market = await Market.deployed();
+    const buyer = user_1;
+    const oldOwner = "0xca9f7d9ad4127e374cdab4bd0a884790c1b03946";
 
-  //   const oldOwner = "0xca9f7d9ad4127e374cdab4bd0a884790c1b03946";
+    await me2.buyArea(20, 20, 20, 20, {from: buyer, value: web3.toWei(1000, 'wei'), gas: 4712388});
+    assertThrows(market.adminImportOldMEBlock(20, 20, {from: admin, gas: 4712388}),
+        "Imported on top of an owned block!");
+    assertThrows(market.adminImportOldMEBlock(20, 20, {from: admin, gas: 4712388}),
+        "Imported block with no landlord!");
+    assertThrows(market.adminImportOldMEBlock(19, 19, {from: buyer, gas: 4712388}),
+        "Only admin can import blocks!");
+    var tx = await market.adminImportOldMEBlock(19, 19, {from: admin, gas: 4712388});
+    logGas(tx, "Import OldME Block");
+    
+    const first_block_owner = await me2.getBlockOwner.call(19, 19);
+    assert.equal(first_block_owner, oldOwner,                       
+        "first_block owner wasn't set correctly");
+    })
 
-  //   var tx = await market.adminImportOldMEBlock(19, 19, {from: admin, gas: 4712388});
 
-  //   const first_block_owner = await me2.getBlockOwner.call(19, 19);
+if(ADMIN) {
+// Paused (1, 30) 
+  it("should pause-unpause contracts", async () => {
+    const me2 = await MillionEther.deployed();
+    // const market = await Market.deployed();
+    const buyer = user_1;
+    const renter = user_2;
 
-  //   assert.equal(first_block_owner, oldOwner,                       
-  //       "first_block owner wasn't set correctly");
+    // deposit explicitly excessive funds to test withdrawal
+    tx = await me2.buyArea(1, 30, 1, 30, {from: buyer, value: web3.toWei(10000, 'wei'), gas: 4712388});
+    tx = await me2.rentOutArea(1, 30, 1, 30, 200, {from: buyer, gas: 4712388});
 
-  //   })
+    assertThrows(me2.pause({from: buyer, gas: 4712388}),
+        "Paused by some guy!");
+    await me2.pause({from: admin, gas: 4712388});
+    assertThrows(me2.withdraw({from: buyer, gas: 4712388}),
+        "withdrawed when paused!");
+    assertThrows(me2.placeImage(1, 30, 1, 30, "imageSourceUrl", "adUrl", "adText",  {from: buyer, gas: 4712388}),
+        "Should've permited to place ads when paused!");
+    // assertThrows(me2.safeTransferFrom(buyer, renter, getBlockId(1, 30), {from: buyer, gas: 4712388}),
+    //     "Safe Transfered block when paused!");    
+    assertThrows(me2.approve(renter, getBlockId(1, 30), {from: buyer, gas: 4712388}),
+        "Approved block transfer when paused!");    
+    assertThrows(me2.setApprovalForAll(renter, true, {from: buyer, gas: 4712388}),
+        "Set Approval For All when paused!");
+    assertThrows(me2.sellArea(1, 30, 1, 30, 2, {from: buyer, gas: 4712388}),
+        "Sold a block when paused!");
+    assertThrows(me2.rentOutArea(1, 30, 1, 30, 100, {from: buyer}),
+        "Rented out a block when paused!");
+    assertThrows(me2.rentArea(1, 30, 1, 30, 2, {from: renter, value: web3.toWei(1600, 'wei'), gas: 4712388}),
+        "Rented a block when paused!");
+    assertThrows(me2.buyArea(1, 31, 1, 31, {from: buyer, value: web3.toWei(1000, 'wei'), gas: 4712388}),
+        "Bought a block when paused!");
+    await me2.unpause({from: admin, gas: 4712388});  //TODO why doesn't work without this line?
+    })
+}
 
+// pause-unpause part by part?? 
 
-
-// Amdmin
-// adminSaveFunds
-// transfer ownership of contract 
-// transfer charity
+// Admin: emergency
+// set Oracle
 // change Market
 // change Rentals
 // change Images
-// set Oracle
+// adminRescueFunds
 
+// Admin: transfer ownreship
+// transfer ownership of contract 
+// transfer charity
 
-
-
-
-// Paused 
-// Cannot buy-sell 
-// ERC Cannot transfer when paused 
-// Cannot approve
-// Cannot withdraw 
-// Cannot setApprovalForAll
-// Withdraw
+// check all necessary events
 
 
 });
