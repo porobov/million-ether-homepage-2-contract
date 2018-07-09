@@ -7,6 +7,7 @@ contract MarketInerface {
     function _buyBlock(address, uint16) external {}
     function _sellBlock(uint16, uint) external {}
     function isOnSale(uint16) public view returns (bool) {}
+    function areaPrice(uint8, uint8, uint8, uint8) public view returns (uint) {}
 }
 
 contract RentalsInterface {
@@ -21,6 +22,7 @@ contract RentalsInterface {
 contract AdsInterface {
     function isAds() public returns (bool) {}
     function placeImage(address, uint8, uint8, uint8, uint8, string, string, string) external {}
+    function isAllowedToAdvertise(address, uint8, uint8, uint8, uint8) public view returns (bool) {}
 }
 
 contract MEHAccessControl is Pausable {

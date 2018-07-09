@@ -5,13 +5,12 @@ import "openzeppelin-solidity/contracts/lifecycle/Destructible.sol";  // product
 contract MarketStub is Destructible {
     
     bool public isMarket = true;
-    uint public charityPayed = 12345;
 
-    // function OracleProxy() {
-    //     oneCentInWei = 1 wei;  // TODO remove after debug
-    // }
-    
-    // function getOneCentInWei() external view returns (uint) {
-    //     return oneCentInWei;
-    // }
+    function areaPrice(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY) 
+        public 
+        view 
+        returns (uint) 
+    {
+        return 54321;
+    }
 }

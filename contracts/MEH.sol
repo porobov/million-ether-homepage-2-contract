@@ -90,7 +90,7 @@ contract MEH is MehERC721, Accounting {
         whenNotPaused
     {   
         require(isLegalCoordinates(fromX, fromY, toX, toY));
-        require(msg.value >= rentPriceTotal(fromX, fromY, toX, toY, _numberOfPeriods));
+        require(msg.value >= areaRentPrice(fromX, fromY, toX, toY, _numberOfPeriods));
 
         _depositTo(msg.sender, msg.value);
 
@@ -114,12 +114,27 @@ contract MEH is MehERC721, Accounting {
         uint8 toY, 
         string imageSourceUrl, 
         string adUrl, 
-        string adText) 
+        string adText
+    ) 
         external
         whenNotPaused
     {   
         require(isLegalCoordinates(fromX, fromY, toX, toY));
         ads.placeImage(msg.sender, fromX, fromY, toX, toY, imageSourceUrl, adUrl, adText);
+    }
+
+    function isAllowedToAdvertise(
+        uint8 fromX, 
+        uint8 fromY, 
+        uint8 toX, 
+        uint8 toY
+    ) 
+        external
+        view
+        returns (bool)
+    {
+        require(isLegalCoordinates(fromX, fromY, toX, toY));
+        return ads.isAllowedToAdvertise(msg.sender, fromX, fromY, toX, toY);
     }
 
 // ** INFO GETTERS ** //
@@ -128,13 +143,18 @@ contract MEH is MehERC721, Accounting {
         return ownerOf(blockID(x, y));
     }
 
-    // 
-    // function getPrice() { 
-
-    // }
+    // area price
+    function areaPrice(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY) 
+        public 
+        view 
+        returns (uint) 
+    {
+        require(isLegalCoordinates(fromX, fromY, toX, toY));
+        return market.areaPrice(fromX, fromY, toX, toY);
+    }
 
     // rent price for period 
-    function rentPriceTotal(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, uint _numberOfPeriods) 
+    function areaRentPrice(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, uint _numberOfPeriods) 
         public 
         view 
         returns (uint) 

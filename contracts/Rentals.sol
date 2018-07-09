@@ -88,5 +88,8 @@ contract Rentals is MehModule {
         return blockIdToRentDeal[_blockId].renter;
     }
 
-    //TODO admin setMaxRentPeriod
+    function adminSetMaxRentPeriod(uint newMaxRentPeriod) external onlyOwner {
+        require (newMaxRentPeriod > 0);
+        maxRentPeriod = newMaxRentPeriod;
+    }
 }

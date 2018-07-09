@@ -38,9 +38,9 @@ contract Ads is MehModule {
     }
 
     function isAllowedToAdvertise(address _advertiser, uint8 _fromX, uint8 _fromY, uint8 _toX, uint8 _toY) 
-        private 
-        view  
-        returns (bool) 
+        public 
+        view
+        returns (bool)
     {
         for (uint8 ix=_fromX; ix<=_toX; ix++) {
             for (uint8 iy=_fromY; iy<=_toY; iy++) {

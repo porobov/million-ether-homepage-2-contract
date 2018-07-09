@@ -7,7 +7,8 @@ var OracleProxy = artifacts.require("../test/mockups/OracleProxy.sol");
 
 var OracleProxyStub = artifacts.require("../test/mockups/OracleProxyStub.sol");
 var MarketStub = artifacts.require("../test/mockups/MarketStub.sol");
-
+var RentalsStub = artifacts.require("../test/mockups/RentalsStub.sol");
+var AdsStub = artifacts.require("../test/mockups/AdsStub.sol");
 
 const BASIC = false;
 const ERC721 = false;
@@ -99,6 +100,14 @@ contract('MillionEther', function(accounts) {
   }
 
   // console.log(web3.eth.getBlock(tx.receipt.blockNumber));
+
+
+
+
+
+
+
+
 
 
 if (BASIC) {
@@ -273,6 +282,13 @@ if (BASIC) {
     })
 }
 
+
+
+
+
+
+
+
 if (ERC721) {
 // ERC721. Transfer ownership by landlord (Cannot transfer when on sale) (10, 1)
   it("should let transfer block ownership (and permit when on sale)", async () => {
@@ -362,6 +378,12 @@ if (ERC721) {
         "the block owner wasn't set");  
   })
 }
+
+
+
+
+
+
 
 if (BUY_SELL_5_BLOCKS) {
 // buy 5 blocks (96, 100) - (100,100)
@@ -612,6 +634,15 @@ async function checkRentState(blockID, expected) {
   })
 }
 
+
+
+
+
+
+
+
+
+
 if (ADS) {
 // ** PLACE ADS ** //
 
@@ -703,7 +734,13 @@ if (CHECK_PRICE_DOUBLING) {
 }
 
 
-if(ADMIN) {
+
+
+
+
+
+
+if(ADMIN) { // (19, 19) - (20, 20), (1, 30) - (5, 40)
 // Admin import old block (19, 19) - (20, 20)
   it("should import old block", async () => {
     const me2 = await MillionEther.deployed();
@@ -790,15 +827,12 @@ if(ADMIN) {
     })
 }
 
-// Admin: settings
-
-// TODO admin setMaxRentPeriod
-  it("Should let admin (and oonly admin) adjust settings", async () => {
+// Admin: upgrade modules
+  it("Should let admin (and only admin) upgrade modules", async () => {
     const me2 = await MillionEther.deployed();
     const market = await Market.deployed();
-    
-    // const rentals = await Rentals.deployed();
-    // const ads = await Ads.deployed();
+    const rentals = await Rentals.deployed();
+    const ads = await Ads.deployed();
     const buyer = user_1;
     const renter = user_2;
 
@@ -807,7 +841,9 @@ if(ADMIN) {
     assertThrows(market.adminSetOracle(OracleProxyStub.address, {from: buyer, gas: 4712388}),
         "Some guy just set new Oracle!");
     await market.adminSetOracle(OracleProxyStub.address, {from: admin, gas: 4712388});
-    // todo - check price from meh assert.equal(await new_oracle_proxy.oneCentInWei.call(), 12345, "Wrond one Cent In Wei from new oracle");
+    result = await me2.areaPrice.call(1,40,1,40);
+    assert.equal(result.toNumber(), 1234500,
+        "Couldn't read the dollar price from new oracle contract (stub)!")
     await market.adminSetOracle(OracleProxy.address, {from: admin, gas: 4712388});
 
     // set Market
@@ -815,25 +851,87 @@ if(ADMIN) {
     assertThrows(me2.adminSetMarket(new_market.address, {from: buyer, gas: 4712388}),
         "Some guy just set new Oracle!");
     await me2.adminSetMarket(new_market.address, {from: admin, gas: 4712388});
-    // todo - try some foo from meh assert.equal(await new_market.charityPayed.call(), 12345, "Wrond one Cent In Wei from new oracle");
+    result = await me2.areaPrice.call(1,40,1,40);
+    assert.equal(result.toNumber(), 54321,
+        "Couldn't get area price from new market contract (a stub)!")
     await me2.adminSetMarket(market.address, {from: admin, gas: 4712388});
 
     // adminSetRentals
+    const new_rentals = await RentalsStub.deployed(); 
+    assertThrows(me2.adminSetRentals(new_rentals.address, {from: buyer, gas: 4712388}),
+        "Some guy just set new Rentals!");
+    await me2.adminSetRentals(new_rentals.address, {from: admin, gas: 4712388});
+    result = await me2.areaRentPrice.call(1,40,1,40,1);
+    assert.equal(result.toNumber(), 42,
+        "Couldn't get area rent price from new rentals contract (a stub)!")
+    await me2.adminSetRentals(rentals.address, {from: admin, gas: 4712388});
+
     // adminSetAds
+    const new_ads = await AdsStub.deployed(); 
+    assertThrows(me2.adminSetAds(new_ads.address, {from: buyer, gas: 4712388}),
+        "Some guy just set new Ads!");
+    await me2.adminSetAds(new_ads.address, {from: admin, gas: 4712388});
+    result = await me2.isAllowedToAdvertise.call(1,40,1,40, {from: buyer, gas: 4712388});
+    assert.equal(result, true,
+        "Couldn't get ads permissions from new ads contract (a stub)!")
+    await me2.adminSetAds(ads.address, {from: admin, gas: 4712388});
+
+    // try connecting wrong modules
+    assertThrows(market.adminSetOracle(new_ads.address, {from: admin, gas: 4712388}),
+        "Connected Ads module as Oracle!");
+    assertThrows(me2.adminSetMarket(new_rentals.address, {from: admin, gas: 4712388}),
+        "Connected Rentals module as Market!");
+    assertThrows(me2.adminSetRentals(new_market.address, {from: admin, gas: 4712388}),
+        "Connected Market module as Rentals!");
+    assertThrows(me2.adminSetAds(OracleProxyStub.address, {from: admin, gas: 4712388}),
+        "Connected Ads module as Market!");
   })
+
+// Admin: adjust settings 
+  it("Should let admin (and only admin) adjust Max Rent Period", async () => {
+    const rentals = await Rentals.deployed();
+    const some_guy  = user_1;
+    assertThrows(rentals.adminSetMaxRentPeriod(42, {from: some_guy, gas: 4712388}),
+        "Some guy just set new Max Rent Period (sould be allowed to admin only)!");
+    assertThrows(rentals.adminSetMaxRentPeriod(0, {from: admin, gas: 4712388}),
+        "Max Rent Period was set to 0!");
+    await rentals.adminSetMaxRentPeriod(42, {from: admin, gas: 4712388});
+    assert.equal(await rentals.maxRentPeriod.call({from: admin, gas: 4712388}), 42, 
+        "Max Rent Period wasn't set correctly");
+    await rentals.adminSetMaxRentPeriod(90, {from: admin, gas: 4712388});
+  })
+
+// Admin: special accounting perimssions
+  it("Should allow admin (and only admin) transfer charity and rescue funds in emergency.", async () => {
+    const me2 = await MillionEther.deployed();
+    const market = await Market.deployed();
+    const buyer = user_1;
+    const charity_org = user_2;
+    tx = await me2.buyArea(1, 40, 1, 40, {from: buyer, value: web3.toWei(1000, 'wei'), gas: 4712388});
+    const before = await mehState(me2);
+
+    assertThrows(market.adminTransferCharity(charity_org, 42, {from: buyer, gas: 4712388}),
+        "Some guy just transfered charity (sould be allowed to admin only)!");
+    assertThrows(market.adminTransferCharity(admin, 42, {from: admin, gas: 4712388}),
+        "Admin just transfered charity to himself!");
+    await market.adminTransferCharity(charity_org, 42, {from: admin, gas: 4712388});
+
+    // asserts
+    const after = await mehState(me2);
+    var deltas = no_changes;
+    deltas.user_2_bal = web3.toWei(42, 'wei');
+    deltas.charity_bal = -web3.toWei(42, 'wei');
+    checkStateChange(before, after, deltas);
+    assert.equal(await market.charityPayed.call(), 42,
+        "Charity Payed didn't insreased right!");
+  })
+
+// adminRescueFunds
 
   it("Following best programming practicies, just some random empty test without which assertThrows just doesn't work properly for some unknown reason...", async () => {
   })
 
-// transfer charity
-
-// Admin: emergency
-// adminRescueFunds
-
 // Admin: transfer ownreship
-
-
 // TODO check all necessary events
-
 
 });

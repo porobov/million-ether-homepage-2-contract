@@ -154,13 +154,14 @@ contract Market is MehModule, DSMath {
 
 // ** ADMIN ** //
 
-    // // transfer charity to an address (internally)
-    // function adminTransferCharity(address charityAddress, uint amount, string reason) external onlyOwner {
-    //     deductFrom(charityVault, amount);
-    //     depositTo(charityAddress, amount);
-    //     charityPayed += amount;
-    //     emit LogCharityTransfer(charityAddress, amount, reason);
-    // }
+    // transfer charity to an address (internally)
+    function adminTransferCharity(address charityAddress, uint amount) external onlyOwner {
+        require(charityAddress != owner);
+        deductFrom(charityVault, amount);
+        depositTo(charityAddress, amount);
+        charityPayed += amount;
+        emit LogCharityTransfer(charityAddress, amount);
+    }
 
     function adminSetOracle(address _address) public onlyOwner {
         OracleProxy candidateContract = OracleProxy(_address);
@@ -179,8 +180,28 @@ contract Market is MehModule, DSMath {
         mintCrowdsaleBlock(oldLandlord, blockId);
     }
 
-    // Emergency
-    //TODO return tokens
-    //TODO pause-upause
+// INFO
 
+    function areaPrice(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY) 
+        public 
+        view 
+        returns (uint) 
+    {
+        uint totalPrice = 0;
+        uint blockPrice = 0;
+        for (uint8 ix=fromX; ix<=toX; ix++) {
+            for (uint8 iy=fromY; iy<=toY; iy++) {
+                uint16 _blockId = meh.blockID(ix, iy);
+                // TODO need to check ownership here? 
+                if (exists(_blockId)) {
+                    blockPrice = blockSellPrice(_blockId);
+                    require(blockPrice > 0);
+                } else {
+                    blockPrice = crowdsalePriceWei();
+                }
+                totalPrice += blockPrice;
+            }
+        }
+        return totalPrice;
+    }
 }
