@@ -1,6 +1,6 @@
 var OldeMillionEther = artifacts.require("../test/mockups/OldeMillionEther.sol");
 var MillionEther = artifacts.require("./MEH.sol");
-var Market = artifacts.require("./Market.sol");
+var Market = artifacts.require("../test/mockups/MarketDisposable.sol");
 var Ads = artifacts.require("./Ads.sol");
 var Rentals = artifacts.require("../test/mockups/RentalsDisposable.sol");
 var OracleProxy = artifacts.require("../test/mockups/OracleProxy.sol");
@@ -26,6 +26,7 @@ contract('MillionEther', function(accounts) {
   var user_2 = web3.eth.accounts[2];
   var user_3 = web3.eth.accounts[3];
   var charityAddress = '0x616c6C20796F75206e656564206973206C6f7665';
+  const gas_price = web3.toWei(100, 'Shannon');  // 100 Shannon - default gas price in Truffle. TODO prepare for Rinkeby
 
 // Helper functions
 
@@ -85,7 +86,7 @@ contract('MillionEther', function(accounts) {
     } catch (err) {
         error = err;
     }
-    console.log(error.message);
+    // console.log(error.message);
     assert.equal(error.message.substring(43,49), "revert", msg);
   }
 
@@ -268,7 +269,7 @@ if (BASIC) {
     const buyer_eth_bal_before = await web3.eth.getBalance(buyer);
 
     tx = await me2.withdraw({from: buyer, gas: 4712388}); 
-    paid_for_gas = web3.toWei(tx.receipt.gasUsed * 100, 'Shannon');  // 100 Shannon - default gas price in Truffle. TODO prepare for Rinkeby
+    paid_for_gas = web3.toWei(tx.receipt.gasUsed * gas_price, "wei");
     const after = await mehState(me2);
     var deltas = {
         user_1_bal: -before.user_1_bal,
@@ -823,7 +824,7 @@ if(ADMIN) { // (19, 19) - (20, 20), (1, 30) - (5, 40)
         "Rented a block when paused!");
     assertThrows(me2.buyArea(1, 31, 1, 31, {from: buyer, value: web3.toWei(1000, 'wei'), gas: 4712388}),
         "Bought a block when paused!");
-    await me2.unpause({from: admin, gas: 4712388});  //TODO why doesn't work without this line?
+    await me2.unpause({from: admin, gas: 4712388});
     })
 }
 
@@ -901,8 +902,8 @@ if(ADMIN) { // (19, 19) - (20, 20), (1, 30) - (5, 40)
     await rentals.adminSetMaxRentPeriod(90, {from: admin, gas: 4712388});
   })
 
-// Admin: special accounting perimssions
-  it("Should allow admin (and only admin) transfer charity and rescue funds in emergency.", async () => {
+// Admin: transfer charity
+  it("Should allow admin (and only admin) transfer charity.", async () => {
     const me2 = await MillionEther.deployed();
     const market = await Market.deployed();
     const buyer = user_1;
@@ -911,7 +912,7 @@ if(ADMIN) { // (19, 19) - (20, 20), (1, 30) - (5, 40)
     const before = await mehState(me2);
 
     assertThrows(market.adminTransferCharity(charity_org, 42, {from: buyer, gas: 4712388}),
-        "Some guy just transfered charity (sould be allowed to admin only)!");
+        "Some guy just transfered charity (should be allowed to admin only)!");
     assertThrows(market.adminTransferCharity(admin, 42, {from: admin, gas: 4712388}),
         "Admin just transfered charity to himself!");
     await market.adminTransferCharity(charity_org, 42, {from: admin, gas: 4712388});
@@ -921,14 +922,96 @@ if(ADMIN) { // (19, 19) - (20, 20), (1, 30) - (5, 40)
     var deltas = no_changes;
     deltas.user_2_bal = web3.toWei(42, 'wei');
     deltas.charity_bal = -web3.toWei(42, 'wei');
+    
     checkStateChange(before, after, deltas);
     assert.equal(await market.charityPayed.call(), 42,
         "Charity Payed didn't insreased right!");
   })
 
-// adminRescueFunds
+// Admin: rescue funds
+  it("Should allow admin (and only admin) to rescue funds in emergency.", async () => {
+    const me2 = await MillionEther.deployed();
+    const buyer = user_1;
+    tx = await me2.buyArea(1, 41, 5, 42, {from: buyer, value: web3.toWei(10000, 'wei'), gas: 4712388});
+    
+    assertThrows(me2.adminRescueFunds({from: buyer, gas: 4712388}),
+        "Some guy just took all the money and ran (should be allowed to admin only)!");
+    assertThrows(me2.adminRescueFunds({from: admin, gas: 4712388}),
+        "Admin took all the money whereas there is no emergency!");
+    await me2.pause({from: admin, gas: 4712388});
 
-  it("Following best programming practicies, just some random empty test without which assertThrows just doesn't work properly for some unknown reason...", async () => {
+    const before = await mehState(me2);
+    const admin_bal_before = await web3.eth.getBalance(admin);
+    tx = await me2.adminRescueFunds({from: admin, gas: 4712388});
+    paid_for_gas = web3.toWei(tx.receipt.gasUsed * gas_price, "wei");
+    const after = await mehState(me2);
+    var deltas = {
+        user_1_bal: 0,
+        user_2_bal: 0,
+        admin_bal: 0,
+        charity_bal: 0,
+        contract_bal: 0,
+        contract_bal_eth: - before.contract_bal_eth,
+        blocks_sold: 0
+    };
+    checkStateChange(before, after, deltas);
+    const admin_bal_after = await web3.eth.getBalance(admin);
+    assert.equal(admin_bal_after.minus(admin_bal_before).toNumber(), before.contract_bal_eth.minus(paid_for_gas).toNumber(),                       
+        "Admin didn't recieve all rescued funds");
+  })
+
+// Admin: transfer ownership
+  it("Should allow admin (and only admin) to transfer ownership.", async () => {
+    const me2 = await MillionEther.deployed();
+    const market = await Market.deployed();
+    const rentals = await Rentals.deployed();
+    const ads = await Ads.deployed();
+    const some_guy = user_1;
+    const new_owner = user_2;
+    
+    assertThrows(ads.transferOwnership(new_owner, {from: some_guy, gas: 4712388}),
+        "Some guy just transfered ownership of Ads (should be allowed to admin only)!");
+    assertThrows(rentals.transferOwnership(new_owner, {from: some_guy, gas: 4712388}),
+        "Some guy just transfered ownership of Ads (should be allowed to admin only)!");
+    assertThrows(market.transferOwnership(new_owner, {from: some_guy, gas: 4712388}),
+        "Some guy just transfered ownership of Ads (should be allowed to admin only)!");
+    assertThrows(me2.transferOwnership(new_owner, {from: some_guy, gas: 4712388}),
+        "Some guy just transfered ownership of Ads (should be allowed to admin only)!");
+
+    await ads.transferOwnership(new_owner, {from: admin, gas: 4712388});
+    await rentals.transferOwnership(new_owner, {from: admin, gas: 4712388});
+    await market.transferOwnership(new_owner, {from: admin, gas: 4712388});
+    await me2.transferOwnership(new_owner, {from: admin, gas: 4712388});
+
+    assert.equal(await ads.owner.call(), new_owner, 
+        "Owner of Ads wasn't set right!");
+    assert.equal(await rentals.owner.call(), new_owner, 
+        "Owner of Ads wasn't set right!");
+    assert.equal(await market.owner.call(), new_owner, 
+        "Owner of Ads wasn't set right!");
+    assert.equal(await me2.owner.call(), new_owner, 
+        "Owner of Ads wasn't set right!");
+
+    await ads.transferOwnership(admin, {from: new_owner, gas: 4712388});
+    await rentals.transferOwnership(admin, {from: new_owner, gas: 4712388});
+    await market.transferOwnership(admin, {from: new_owner, gas: 4712388});
+    await me2.transferOwnership(admin, {from: new_owner, gas: 4712388});
+  })
+
+// todo check price doubling
+  it("Should double price every 10% of blocks sold.", async () => {
+    const me2 = await MillionEther.deployed();
+    const market = await Market.deployed();
+    const rentals = await Rentals.deployed();
+    const ads = await Ads.deployed();
+    const some_guy = user_1;
+    const new_owner = user_2;
+
+    result = await market.usdPrice(0);
+  })
+
+  it("Clean up.", async () => {
+    // todo sefdestruct all
   })
 
 // Admin: transfer ownreship

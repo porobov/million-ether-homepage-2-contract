@@ -43,12 +43,11 @@ contract Accounting is DSMath, MEHAccessControl {
     //TODO function saveTheMoney whenPaused
     /// @dev withdraw contract balance
     /// @notice To be called in emergency. As the contract is not designed to keep users funds
-    ///  (funds not locked, withdraw at anytime) it should be relatively easy to manualy 
+    ///  (users can withdraw at anytime) it should be relatively easy to manualy 
     ///  transfer unclaimed funds to their owners. This is an alternatinve to selfdestruct
     ///  to make blocks ledger immutable.
-    function adminSaveFunds() external onlyOwner whenPaused {
-        // require(address(market) == )
-        address payee = msg.sender;
+    function adminRescueFunds() external onlyOwner whenPaused {
+        address payee = owner;
         uint256 payment = address(this).balance;
         assert(payee.send(payment));
     }

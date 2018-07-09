@@ -97,15 +97,15 @@ contract Market is MehModule, DSMath {
 // ** BUY AND SELL BLOCKS ** //
 
     // doubles price every 1000 blocks sold
-    function crowdsalePriceUSD() internal view returns (uint16) {
-        uint16 blocksSold = uint16(meh.totalSupply());
-        return uint16(2 ** (blocksSold / 1000));  // check overflow?
+    function crowdsalePriceUSD(uint16 _blocksSold) internal pure returns (uint16) {
+        return uint16(2 ** (_blocksSold / 1000));  // check overflow?
     }
 
     function crowdsalePriceWei() internal view returns (uint) {
+        uint16 blocksSold = uint16(meh.totalSupply());
         uint256 oneCentInWei = usd.oneCentInWei();
         require(oneCentInWei > 0);
-        return mul(mul(oneCentInWei, crowdsalePriceUSD()), 100);
+        return mul(mul(oneCentInWei, crowdsalePriceUSD(blocksSold)), 100);
     }
 
     function blockSellPrice(uint16 _blockId) internal view returns (uint) {
