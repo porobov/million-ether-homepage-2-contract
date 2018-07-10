@@ -28,10 +28,9 @@ contract AdsInterface {
 contract MEHAccessControl is Pausable {
 
     bool public isMEH = true;
-    MarketInerface market;
-    RentalsInterface rentals;
-    AdsInterface ads;
-
+    MarketInerface public market;
+    RentalsInterface public rentals;
+    AdsInterface public ads;
 
     event LogContractUpgrade(address newAddress, string ContractName);
     

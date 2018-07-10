@@ -35,7 +35,7 @@ contract MEH is MehERC721, Accounting {
         for (uint8 ix=fromX; ix<=toX; ix++) {
             for (uint8 iy=fromY; iy<=toY; iy++) {
                 // uint16 blockId = blockID(ix, iy);
-                // require(msg.sender != ownerOf(blockId));  // thows, because 
+                // require(msg.sender != ownerOf(blockId));  // thows, because blocks may not exist
                 market._buyBlock(msg.sender, blockID(ix, iy));
             }
         }
@@ -45,7 +45,7 @@ contract MEH is MehERC721, Accounting {
 
     // sell an area of blocks at coordinates [fromX, fromY, toX, toY]
     // (priceForEachBlockCents = 0 - not for sale)
-    function sellArea(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, uint priceForEachBlockWei) 
+    function sellArea(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, uint priceForEachBlockWei) // TODO sellTo
         external 
         whenNotPaused
     {   
@@ -63,11 +63,21 @@ contract MEH is MehERC721, Accounting {
         // emit LogOwnership(numOwnershipStatuses, fromX, fromY, toX, toY, address(0x0), priceForEachBlockCents);
     }
 
-// ** RENT OUT AND RENT BLOCKS ** //
+    // area price
+    function areaPrice(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY) 
+        public 
+        view 
+        returns (uint) 
+    {
+        require(isLegalCoordinates(fromX, fromY, toX, toY));
+        return market.areaPrice(fromX, fromY, toX, toY);
+    }
 
+// ** RENT OUT AND RENT BLOCKS ** //
+        
     // @dev Rent out an area of blocks at coordinates [fromX, fromY, toX, toY]
     // @notice INFOf _rentPricePerPeriodWei = 0 then not for rent
-    function rentOutArea(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, uint _rentPricePerPeriodWei)  // TODO rentTo
+    function rentOutArea(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, uint _rentPricePerPeriodWei)  // TODO maxRentPeriod, minRentPeriod,  
         external
         whenNotPaused
     {   
@@ -77,7 +87,7 @@ contract MEH is MehERC721, Accounting {
             for (uint8 iy=fromY; iy<=toY; iy++) {
                 uint16 _blockId = blockID(ix, iy);
                 require(msg.sender == ownerOf(_blockId));
-                rentals.rentOutBlock(_blockId, _rentPricePerPeriodWei);   // TODO rentTo
+                rentals.rentOutBlock(_blockId, _rentPricePerPeriodWei);
             }
         }
         // numRentStatuses++;
@@ -103,6 +113,25 @@ contract MEH is MehERC721, Accounting {
         }
         // numRentStatuses++;
         // LogRent(numRentStatuses, fromX, fromY, toX, toY, 0, rentedTill, msg.sender);
+    }
+
+        // rent price for period 
+    function areaRentPrice(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, uint _numberOfPeriods) 
+        public 
+        view 
+        returns (uint) 
+    {
+        require(isLegalCoordinates(fromX, fromY, toX, toY));
+
+        uint totalPrice = 0;
+        for (uint8 ix=fromX; ix<=toX; ix++) {
+            for (uint8 iy=fromY; iy<=toY; iy++) {
+                uint16 _blockId = blockID(ix, iy);
+                // TODO need to check ownership here? 
+                totalPrice += rentals.rentPriceAndAvailability(_blockId) * _numberOfPeriods;
+            }
+        }
+        return totalPrice;
     }
 
 // ** PLACE ADS ** //
@@ -143,34 +172,5 @@ contract MEH is MehERC721, Accounting {
         return ownerOf(blockID(x, y));
     }
 
-    // area price
-    function areaPrice(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY) 
-        public 
-        view 
-        returns (uint) 
-    {
-        require(isLegalCoordinates(fromX, fromY, toX, toY));
-        return market.areaPrice(fromX, fromY, toX, toY);
-    }
 
-    // rent price for period 
-    function areaRentPrice(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, uint _numberOfPeriods) 
-        public 
-        view 
-        returns (uint) 
-    {
-        require(isLegalCoordinates(fromX, fromY, toX, toY));
-
-        uint totalPrice = 0;
-        for (uint8 ix=fromX; ix<=toX; ix++) {
-            for (uint8 iy=fromY; iy<=toY; iy++) {
-                uint16 _blockId = blockID(ix, iy);
-                // TODO need to check ownership here? 
-                totalPrice += rentals.rentPriceAndAvailability(_blockId) * _numberOfPeriods;
-            }
-        }
-        return totalPrice;
-    }
-    // Emergency
-    //TODO withdraw all
 }

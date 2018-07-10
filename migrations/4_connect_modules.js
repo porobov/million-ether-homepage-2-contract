@@ -4,7 +4,7 @@ var RentalsDisposable = artifacts.require("../test/mockups/RentalsDisposable.sol
 var Ads = artifacts.require("./Ads.sol");
 
 module.exports = function(deployer) {
-  Ads.deployed().then(ads => {
-    return ads.adminSetRentals(RentalsDisposable.address);
-  });
+  // Ads.deployed().then(ads => {
+  //   return ads.adminSetRentals(RentalsDisposable.address);
+  // });
 }

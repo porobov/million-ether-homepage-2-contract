@@ -38,8 +38,16 @@ contract Market is MehModule, DSMath {
     mapping (uint16 => uint256) blockIdToPrice;
 
     // Events
-    // price > 0 - for sale. price = 0 - sold (or marked as not for sale). address(0x0) - actions of current landlord
-    event LogOwnership (uint ID, uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, address indexed newLandlord, uint newPrice); 
+    // price > 0 - for sale. price = 0 - sold (or marked as not for sale). 
+    // address(0x0) - actions of current landlord
+    event LogOwnership (
+        uint ID, 
+        uint8 fromX, 
+        uint8 fromY, 
+        uint8 toX, 
+        uint8 toY, 
+        address indexed newLandlord, 
+        uint newPrice); 
 
     // Reports
     event LogNewOracleProxy(address oracleProxy);
@@ -48,10 +56,12 @@ contract Market is MehModule, DSMath {
 
 
 // ** INITIALIZE ** //
-
-    constructor(address _mehAddress, address _oldMehAddress, address _oracleProxyAddress) public {
+    
+    constructor(address _mehAddress, address _oldMehAddress, address _oracleProxyAddress)
+        MehModule(_mehAddress)
+        public
+    {
         oldMillionEther = OldeMillionEther(_oldMehAddress);
-        adminSetMeh(_mehAddress);
         adminSetOracle(_oracleProxyAddress);
     }
 
@@ -181,27 +191,67 @@ contract Market is MehModule, DSMath {
     }
 
 // INFO
+    
+    function map(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, 
+                    function (uint16) view returns (uint) f) internal view returns (uint)  
+    {
+        uint total = 0;
+        for (uint8 ix=fromX; ix<=toX; ix++) {
+            for (uint8 iy=fromY; iy<=toY; iy++) {
+                total += f(meh.blockID(ix, iy));
+            }
+        }
+        return total;
+    }
+
+    function getBlockPrice(uint16 _blockId) view returns (uint) {
+        uint blockPrice = 0;
+        // TODO need to check ownership here? 
+        if (exists(_blockId)) {
+            blockPrice = blockSellPrice(_blockId);
+            require(blockPrice > 0);
+        } else {
+            blockPrice = crowdsalePriceWei();
+        }
+        return blockPrice;
+    }
+
+
+    // function blocksList(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY) internal view returns (uint16[] memory r)  
+    // {
+    //     uint i = 0;
+    //     r = new uint16[](self.length);
+    //     for (uint8 ix=fromX; ix<=toX; ix++) {
+    //         for (uint8 iy=fromY; iy<=toY; iy++) {
+                
+    // for (uint i = 0; i < self.length; i++) {
+    //   r[i] = f(self[i]);
+    //             total += f(meh.blockID(ix, iy));
+    //             i++;
+    //         }
+    //     }
+    // }
 
     function areaPrice(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY) 
         public 
         view 
         returns (uint) 
     {
-        uint totalPrice = 0;
-        uint blockPrice = 0;
-        for (uint8 ix=fromX; ix<=toX; ix++) {
-            for (uint8 iy=fromY; iy<=toY; iy++) {
-                uint16 _blockId = meh.blockID(ix, iy);
-                // TODO need to check ownership here? 
-                if (exists(_blockId)) {
-                    blockPrice = blockSellPrice(_blockId);
-                    require(blockPrice > 0);
-                } else {
-                    blockPrice = crowdsalePriceWei();
-                }
-                totalPrice += blockPrice;
-            }
-        }
-        return totalPrice;
+        // uint totalPrice = 0;
+        // uint blockPrice = 0;
+        // for (uint8 ix=fromX; ix<=toX; ix++) {
+        //     for (uint8 iy=fromY; iy<=toY; iy++) {
+        //         uint16 _blockId = meh.blockID(ix, iy);
+        //         // TODO need to check ownership here? 
+        //         if (exists(_blockId)) {
+        //             blockPrice = blockSellPrice(_blockId);
+        //             require(blockPrice > 0);
+        //         } else {
+        //             blockPrice = crowdsalePriceWei();
+        //         }
+        //         totalPrice += blockPrice;
+        //     }
+        // }
+        return map(fromX, fromY, toX, toY, getBlockPrice);
     }
 }

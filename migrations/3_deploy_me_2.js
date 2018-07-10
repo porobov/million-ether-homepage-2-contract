@@ -18,10 +18,13 @@ module.exports = function(deployer) {
 
   deployer.deploy(RentalsDisposable, MEH.address).then(() => {
     MEH.deployed().then(meh => {
+
         return meh.adminSetRentals(RentalsDisposable.address);
     });
+
   });
 
+  // deployer.deploy(Ads, MEH.address);
   deployer.deploy(Ads, MEH.address).then(() => {
     MEH.deployed().then(meh => {
     return meh.adminSetAds(Ads.address);

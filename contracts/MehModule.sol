@@ -9,8 +9,11 @@ import "./MEH.sol";
 contract MehModule is Ownable, Pausable, Destructible, HasNoEther {
 
     MEH  meh;
-    RentalsInterface rentals;
 
+    constructor(address _mehAddress) public {
+        adminSetMeh(_mehAddress);
+    }
+    
     modifier onlyMeh() {
         require(msg.sender == address(meh));
         _;
@@ -20,13 +23,5 @@ contract MehModule is Ownable, Pausable, Destructible, HasNoEther {
         MEH candidateContract = MEH(_address);
         require(candidateContract.isMEH());
         meh = candidateContract;
-    }
-
-    // warn: when upgrading rentals, pause everything and update ads.sol reference to rentals first
-    function adminSetRentals(address _address) external onlyOwner { //whenPaused {    // TODO 
-        // // TODO this.address is not rentals
-        RentalsInterface candidateContract = RentalsInterface(_address);
-        require(candidateContract.isRentals());
-        rentals = candidateContract;
     }
 }

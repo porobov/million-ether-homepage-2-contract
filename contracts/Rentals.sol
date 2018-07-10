@@ -22,8 +22,7 @@ contract Rentals is MehModule {
     // Rent is allowed if price is set (price Per Period)
     mapping(uint16 => uint) public blockIdToRentPrice;
 
-    constructor(address _mehAddress) public {  // TODO move to MehModule
-        adminSetMeh(_mehAddress);
+    constructor(address _mehAddress) MehModule(_mehAddress) {  // TODO move to MehModule
     }
 
     // TODO create library (same for Market) - into MehModule maybe

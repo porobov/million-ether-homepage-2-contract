@@ -17,7 +17,7 @@ const BUY_MIXED_BLOCKS = true;
 const RENT = true;
 const ADS = true;
 const ADMIN = true;
-const CHECK_PRICE_DOUBLING = true;
+const CHECK_PRICE_DOUBLING = false;
 
 contract('MillionEther', function(accounts) {
 
@@ -684,7 +684,8 @@ if (ADS) {
     await me2.buyArea(55, 3, 56, 4, {from: some_guy, value: web3.toWei(4000, 'wei'), gas: 4712388});
     await me2.rentOutArea(55, 3, 56, 4, 200, {from: some_guy, gas: 4712388});
     await me2.rentArea(55, 3, 56, 4, 2, {from: advertiser, value: web3.toWei(1600, 'wei'), gas: 4712388})
-    await me2.placeImage(55, 1, 56, 4, "imageSourceUrl", "adUrl", "adText",  {from: advertiser, gas: 4712388});
+    tx = await me2.placeImage(55, 1, 56, 4, "imageSourceUrl", "adUrl", "adText",  {from: advertiser, gas: 4712388});
+    logGas(tx, "placeImage(55, 1, 56, 4)");
     await awaitEvent(event, watcher);
     
   })
@@ -956,6 +957,29 @@ if(ADMIN) { // (59, 59) - (60, 60), (1, 30) - (5, 40)
     await market.transferOwnership(admin, {from: new_owner, gas: 4712388});
     await me2.transferOwnership(admin, {from: new_owner, gas: 4712388});
   })
+
+// Price doubling function
+  it("Should double price every 10% of blocks sold.", async () => {
+    const me2 = await MillionEther.deployed();
+    const market = await Market.deployed();
+    const rentals = await Rentals.deployed();
+    const ads = await Ads.deployed();
+    const some_guy = user_1;
+    const new_owner = user_2;
+
+    assert.equal((await market.usdPrice.call(0)).toNumber(), 1, 
+        "USD price at 0 blocks sold wasn't $1");
+    assert.equal((await market.usdPrice.call(1)).toNumber(), 1, 
+        "USD price at 1 blocks sold wasn't $1");
+    assert.equal((await market.usdPrice.call(999)).toNumber(), 1, 
+        "USD price at 999 blocks sold wasn't $1");
+    assert.equal((await market.usdPrice.call(1000)).toNumber(), 2, 
+        "USD price at 1000 blocks sold wasn't $2");
+    assert.equal((await market.usdPrice.call(2000)).toNumber(), 4, 
+        "USD price at 2000 blocks sold wasn't $4");
+    assert.equal((await market.usdPrice.call(9999)).toNumber(), 512, 
+        "USD price at 0 blocks sold wasn't $512");
+  })
 }
 
 
@@ -998,28 +1022,7 @@ if (CHECK_PRICE_DOUBLING) {
 }
 
 
-// Price doubling
-  it("Should double price every 10% of blocks sold.", async () => {
-    const me2 = await MillionEther.deployed();
-    const market = await Market.deployed();
-    const rentals = await Rentals.deployed();
-    const ads = await Ads.deployed();
-    const some_guy = user_1;
-    const new_owner = user_2;
 
-    assert.equal((await market.usdPrice.call(0)).toNumber(), 1, 
-        "USD price at 0 blocks sold wasn't $1");
-    assert.equal((await market.usdPrice.call(1)).toNumber(), 1, 
-        "USD price at 1 blocks sold wasn't $1");
-    assert.equal((await market.usdPrice.call(999)).toNumber(), 1, 
-        "USD price at 999 blocks sold wasn't $1");
-    assert.equal((await market.usdPrice.call(1000)).toNumber(), 2, 
-        "USD price at 1000 blocks sold wasn't $2");
-    assert.equal((await market.usdPrice.call(2000)).toNumber(), 4, 
-        "USD price at 2000 blocks sold wasn't $4");
-    assert.equal((await market.usdPrice.call(9999)).toNumber(), 512, 
-        "USD price at 0 blocks sold wasn't $512");
-  })
 
 // todo sefdestruct all
   it("Clean up.", async () => {

@@ -7,14 +7,15 @@ contract Ads is MehModule {
     
     bool public isAds = true;
     uint public numImages = 0;
+    RentalsInterface public rentalsContract;
+   
 
     event LogImage (uint ID, uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, string imageSourceUrl, string adUrl, string adText, address indexed publisher);
 
 // ** INITIALIZE ** //
 
-    constructor(address _mehAddress) public {
-        adminSetMeh(_mehAddress);
-        // RentalsInterface rentals = meh.rentals();
+    constructor(address _mehAddress) MehModule(_mehAddress) {
+        // adminSetMeh(_mehAddress);
     }
 
 // ** PLACE IMAGES ** //
@@ -34,7 +35,7 @@ contract Ads is MehModule {
         view 
         returns (bool) 
     {
-        return (_advertiser == rentals.renterOf(_blockId));
+        return (_advertiser == meh.rentals().renterOf(_blockId));
     }
 
     function isAllowedToAdvertise(address _advertiser, uint8 _fromX, uint8 _fromY, uint8 _toX, uint8 _toY) 
@@ -45,7 +46,7 @@ contract Ads is MehModule {
         for (uint8 ix=_fromX; ix<=_toX; ix++) {
             for (uint8 iy=_fromY; iy<=_toY; iy++) {
                 uint16 blockId = meh.blockID(ix, iy);
-                if (rentals.isRented(blockId)) {
+                if (meh.rentals().isRented(blockId)) {
                     require(isRenter(_advertiser, blockId));
                 } else {
                     require(isBlockOwner(_advertiser, blockId));
@@ -74,11 +75,4 @@ contract Ads is MehModule {
         numImages++;
         emit LogImage(numImages, fromX, fromY, toX, toY, imageSourceUrl, adUrl, adText, advertiser);
     }
-
-    // function chargeForImagePlacement() private {
-    //     depositTo(msg.sender, msg.value);
-    //     uint imagePlacementFeeInWei = mul(imagePlacementFeeCents, usd.getOneCentInWei()); 
-    //     deductFrom(msg.sender, imagePlacementFeeInWei);
-    //     depositTo(owner, imagePlacementFeeInWei);
-    // }
 }
