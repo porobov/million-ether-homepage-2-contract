@@ -27,9 +27,9 @@ contract OldeMillionEther {
     Block[101][101] private blocks; 
 
     constructor() public {
-        blocks[19][19].landlord = 0xCA9f7D9aD4127e374cdaB4bd0a884790C1B03946;
-        blocks[19][20].landlord = 0x26bFdbfF9008693398fB8854db0d953aF4aF3e55;
-        blocks[20][20].landlord = 0x95fdB8BB2167d7DA27965952CD4c15dA6Ac46d60;
+        blocks[59][59].landlord = 0xCA9f7D9aD4127e374cdaB4bd0a884790C1B03946;
+        blocks[59][60].landlord = 0x26bFdbfF9008693398fB8854db0d953aF4aF3e55;
+        blocks[60][60].landlord = 0x95fdB8BB2167d7DA27965952CD4c15dA6Ac46d60;
     }
 
     function getBlockInfo(uint8 x, uint8 y) 

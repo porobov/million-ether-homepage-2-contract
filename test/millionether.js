@@ -10,14 +10,14 @@ var MarketStub = artifacts.require("../test/mockups/MarketStub.sol");
 var RentalsStub = artifacts.require("../test/mockups/RentalsStub.sol");
 var AdsStub = artifacts.require("../test/mockups/AdsStub.sol");
 
-const BASIC = false;
-const ERC721 = false;
-const BUY_SELL_5_BLOCKS = false;
-const BUY_MIXED_BLOCKS = false;
-const RENT = false;
-const ADS = false;
-const ADMIN = false;
-const CHECK_PRICE_DOUBLING = false;
+const BASIC = true;
+const ERC721 = true;
+const BUY_SELL_5_BLOCKS = true;
+const BUY_MIXED_BLOCKS = true;
+const RENT = true;
+const ADS = true;
+const ADMIN = true;
+const CHECK_PRICE_DOUBLING = true;
 
 contract('MillionEther', function(accounts) {
 
@@ -35,7 +35,7 @@ contract('MillionEther', function(accounts) {
   }
 
   function logGas(_tx, _tx_name) {
-    console.log("       > gasUsed for", _tx_name, _tx.receipt.gasUsed, '|', _tx.receipt.cumulativeGasUsed);
+    console.log("       > gasUsed for", _tx_name, _tx.receipt.gasUsed); //, '|', _tx.receipt.cumulativeGasUsed);
   }
 
   // get most important state variables
@@ -119,7 +119,7 @@ if (BASIC) {
     const before = await mehState(me2);
 
     tx = await me2.buyArea(1, 1, 1, 1, {from: buyer, value: web3.toWei(1000, 'wei'), gas: 4712388});
-    logGas(tx, "buyArea (one block");
+    logGas(tx, "buyArea (one block)");
 
     const after = await mehState(me2);
     const deltas = {
@@ -145,9 +145,9 @@ if (BASIC) {
     const before = await mehState(me2);
 
     var tx = await me2.sellArea(1, 1, 1, 1, 5, {from: seller, gas: 4712388});
-    logGas(tx, "sellArea (1 block");
+    logGas(tx, "sellArea (1 block)");
     tx = await me2.buyArea(1, 1, 1, 1, {from: buyer, value: web3.toWei(5, 'wei'), gas: 4712388});
-    logGas(tx, "buyArea from landlord (1 block");
+    logGas(tx, "buyArea from landlord (1 block)");
 
     const after = await mehState(me2);
     const deltas = {
@@ -299,7 +299,7 @@ if (ERC721) {
     var tx = await me2.buyArea(10, 1, 10, 1, {from: buyer, value: web3.toWei(2000, 'wei'), gas: 4712388});
 
     var before = await mehState(me2);
-    console.log("blocks_sold", before.blocks_sold);
+    // console.log("blocks_sold", before.blocks_sold);
     tx = await me2.safeTransferFrom(buyer, new_landlord, getBlockId(10, 1), {from: buyer, gas: 4712388});
     var after = await mehState(me2);
     checkStateChange(before, after, no_changes);
@@ -394,7 +394,7 @@ if (BUY_SELL_5_BLOCKS) {
     const before = await mehState(me2);
 
     const tx = await me2.buyArea(96, 100, 100, 100, {from: buyer, value: web3.toWei(5000, 'wei'), gas: 4712388});
-    logGas(tx, "buyArea (5 blocks");
+    logGas(tx, "buyArea (5 blocks)");
 
     const after = await mehState(me2);
     const deltas = {
@@ -419,9 +419,9 @@ if (BUY_SELL_5_BLOCKS) {
     const before = await mehState(me2);
 
     var tx = await me2.sellArea(96, 100, 100, 100, 2000, {from: seller, gas: 4712388});
-    logGas(tx, "sellArea (5 blocks");
+    logGas(tx, "sellArea (5 blocks)");
     tx = await me2.buyArea(96, 100, 100, 100, {from: buyer, value: web3.toWei(20000, 'wei'), gas: 4712388});
-    logGas(tx, "buyArea (5 blocks from a landlord");
+    logGas(tx, "buyArea (5 blocks) from a landlord");
 
     const after = await mehState(me2);
     const deltas = {
@@ -694,77 +694,30 @@ if (ADS) {
 
 
 
-
-
-
-if (CHECK_PRICE_DOUBLING) {
-// buy 10% of blocks (1, 8) - (40, 25)
-  it("should double price after 10% of blocks sold", async () => {
-    const me2 = await MillionEther.deployed();
-    const very_rich_buyer = user_1;
-    const before = await mehState(me2);
-
-    const blocks_to_buy = 1000 - before.blocks_sold;
-    const number_of_40_block_packs = Math.trunc(blocks_to_buy/40);
-    var i; var tx;
-    for (i = 0; i < number_of_40_block_packs; i++) { 
-        tx = await me2.buyArea(1, 10+i, 40, 10+i, {from: very_rich_buyer, value: web3.toWei(40000, 'wei'), gas: 6721975});
-    }
-    logGas(tx, "buyArea from owner (40 block");
-
-    const number_of_1_block_packs = blocks_to_buy % 40;
-    if (number_of_1_block_packs > 0) {
-       tx = await me2.buyArea(1, 9, number_of_1_block_packs, 9, {from: very_rich_buyer, value: web3.toWei(number_of_1_block_packs * 1000, 'wei'), gas: 6721975}); 
-    }
-
-    // buy block number 1001 at a doubled priced
-    tx = await me2.buyArea(1, 8, 1, 8, {from: very_rich_buyer, value: web3.toWei(2000, 'wei'), gas: 6721975}); 
-
-    const after = await mehState(me2);
-    const deltas = {
-        user_1_bal: 0,
-        user_2_bal: 0,
-        admin_bal: web3.toWei(blocks_to_buy * 200 + 2 * 200, 'wei') ,  // +1 one block at 2 USD
-        charity_bal: web3.toWei(blocks_to_buy * 800 + 2 * 800, 'wei'),  // +1 one block at 2 USD
-        contract_bal: 0,
-        contract_bal_eth: blocks_to_buy * 1000 + 2 * 1000,  // +1 one block at 2 USD
-        blocks_sold: blocks_to_buy + 1 // +1 one block at 2 USD
-    }
-    checkStateChange(before, after, deltas);
-  })
-}
-
-
-
-
-
-
-
-
-if(ADMIN) { // (19, 19) - (20, 20), (1, 30) - (5, 40)
-// Admin import old block (19, 19) - (20, 20)
+if(ADMIN) { // (59, 59) - (60, 60), (1, 30) - (5, 40)
+// Admin import old block (59, 59) - (60, 60)
   it("should import old block", async () => {
     const me2 = await MillionEther.deployed();
     const market = await Market.deployed();
     const buyer = user_1;
     const oldOwner = "0xca9f7d9ad4127e374cdab4bd0a884790c1b03946";
 
-    await me2.buyArea(20, 20, 20, 20, {from: buyer, value: web3.toWei(1000, 'wei'), gas: 4712388});
-    assertThrows(market.adminImportOldMEBlock(20, 20, {from: admin, gas: 4712388}),
+    await me2.buyArea(60, 60, 60, 60, {from: buyer, value: web3.toWei(1000, 'wei'), gas: 4712388});
+    assertThrows(market.adminImportOldMEBlock(60, 60, {from: admin, gas: 4712388}),
         "Imported on top of an owned block!");
-    assertThrows(market.adminImportOldMEBlock(20, 20, {from: admin, gas: 4712388}),
+    assertThrows(market.adminImportOldMEBlock(60, 60, {from: admin, gas: 4712388}),
         "Imported block with no landlord!");
-    assertThrows(market.adminImportOldMEBlock(19, 19, {from: buyer, gas: 4712388}),
+    assertThrows(market.adminImportOldMEBlock(59, 59, {from: buyer, gas: 4712388}),
         "Only admin can import blocks!");
-    var tx = await market.adminImportOldMEBlock(19, 19, {from: admin, gas: 4712388});
+    var tx = await market.adminImportOldMEBlock(59, 59, {from: admin, gas: 4712388});
     logGas(tx, "Import OldME Block");
     
-    const first_block_owner = await me2.getBlockOwner.call(19, 19);
+    const first_block_owner = await me2.getBlockOwner.call(59, 59);
     assert.equal(first_block_owner, oldOwner,                       
         "first_block owner wasn't set correctly");
     })
 
-// Paused (1, 30) - (1, 31)
+// Paused (1, 50) - (1, 51) 
   it("should pause-unpause contracts", async () => {
     const me2 = await MillionEther.deployed();
     const market = await Market.deployed();
@@ -774,8 +727,8 @@ if(ADMIN) { // (19, 19) - (20, 20), (1, 30) - (5, 40)
     const renter = user_2;
 
     // deposit explicitly excessive funds to test withdrawal
-    tx = await me2.buyArea(1, 30, 1, 30, {from: buyer, value: web3.toWei(10000, 'wei'), gas: 4712388});
-    tx = await me2.rentOutArea(1, 30, 1, 30, 200, {from: buyer, gas: 4712388});
+    tx = await me2.buyArea(1, 50, 1, 50, {from: buyer, value: web3.toWei(10000, 'wei'), gas: 4712388});
+    tx = await me2.rentOutArea(1, 50, 1, 50, 200, {from: buyer, gas: 4712388});
 
     assertThrows(me2.pause({from: buyer, gas: 4712388}),
         "Paused me2 by some guy!");
@@ -790,15 +743,15 @@ if(ADMIN) { // (19, 19) - (20, 20), (1, 30) - (5, 40)
     await market.pause({from: admin, gas: 4712388});
     await rentals.pause({from: admin, gas: 4712388});
     await ads.pause({from: admin, gas: 4712388});
-    assertThrows(me2.placeImage(1, 30, 1, 30, "imageSourceUrl", "adUrl", "adText",  {from: buyer, gas: 4712388}),
+    assertThrows(me2.placeImage(1, 50, 1, 50, "imageSourceUrl", "adUrl", "adText",  {from: buyer, gas: 4712388}),
         "Should've permited to place ads when paused!");
-    assertThrows(me2.sellArea(1, 30, 1, 30, 2, {from: buyer, gas: 4712388}),
+    assertThrows(me2.sellArea(1, 50, 1, 50, 2, {from: buyer, gas: 4712388}),
         "Sold a block when paused!");
-    assertThrows(me2.rentOutArea(1, 30, 1, 30, 100, {from: buyer}),
+    assertThrows(me2.rentOutArea(1, 50, 1, 50, 100, {from: buyer}),
         "Rented out a block when paused!");
-    assertThrows(me2.rentArea(1, 30, 1, 30, 2, {from: renter, value: web3.toWei(1600, 'wei'), gas: 4712388}),
+    assertThrows(me2.rentArea(1, 50, 1, 50, 2, {from: renter, value: web3.toWei(1600, 'wei'), gas: 4712388}),
         "Rented a block when paused!");
-    assertThrows(me2.buyArea(1, 31, 1, 31, {from: buyer, value: web3.toWei(1000, 'wei'), gas: 4712388}),
+    assertThrows(me2.buyArea(1, 51, 1, 51, {from: buyer, value: web3.toWei(1000, 'wei'), gas: 4712388}),
         "Bought a block when paused!");
     await market.unpause({from: admin, gas: 4712388});
     await rentals.unpause({from: admin, gas: 4712388});
@@ -808,27 +761,27 @@ if(ADMIN) { // (19, 19) - (20, 20), (1, 30) - (5, 40)
     await me2.pause({from: admin, gas: 4712388});
     assertThrows(me2.withdraw({from: buyer, gas: 4712388}),
         "withdrawed when paused!");
-    assertThrows(me2.placeImage(1, 30, 1, 30, "imageSourceUrl", "adUrl", "adText",  {from: buyer, gas: 4712388}),
+    assertThrows(me2.placeImage(1, 50, 1, 50, "imageSourceUrl", "adUrl", "adText",  {from: buyer, gas: 4712388}),
         "Should've permited to place ads when paused!");
-    assertThrows(me2.safeTransferFrom(buyer, renter, getBlockId(1, 30), {from: buyer, gas: 4712388}),
+    assertThrows(me2.safeTransferFrom(buyer, renter, getBlockId(1, 50), {from: buyer, gas: 4712388}),
         "Safe Transfered block when paused!");    
-    assertThrows(me2.approve(renter, getBlockId(1, 30), {from: buyer, gas: 4712388}),
+    assertThrows(me2.approve(renter, getBlockId(1, 50), {from: buyer, gas: 4712388}),
         "Approved block transfer when paused!");    
     assertThrows(me2.setApprovalForAll(renter, true, {from: buyer, gas: 4712388}),
         "Set Approval For All when paused!");
-    assertThrows(me2.sellArea(1, 30, 1, 30, 2, {from: buyer, gas: 4712388}),
+    assertThrows(me2.sellArea(1, 50, 1, 50, 2, {from: buyer, gas: 4712388}),
         "Sold a block when paused!");
-    assertThrows(me2.rentOutArea(1, 30, 1, 30, 100, {from: buyer}),
+    assertThrows(me2.rentOutArea(1, 50, 1, 50, 100, {from: buyer}),
         "Rented out a block when paused!");
-    assertThrows(me2.rentArea(1, 30, 1, 30, 2, {from: renter, value: web3.toWei(1600, 'wei'), gas: 4712388}),
+    assertThrows(me2.rentArea(1, 50, 1, 50, 2, {from: renter, value: web3.toWei(1600, 'wei'), gas: 4712388}),
         "Rented a block when paused!");
-    assertThrows(me2.buyArea(1, 31, 1, 31, {from: buyer, value: web3.toWei(1000, 'wei'), gas: 4712388}),
+    assertThrows(me2.buyArea(1, 51, 1, 51, {from: buyer, value: web3.toWei(1000, 'wei'), gas: 4712388}),
         "Bought a block when paused!");
     await me2.unpause({from: admin, gas: 4712388});
     })
-}
 
-// Admin: upgrade modules
+
+// --------- Admin: upgrade modules (1, 52, 1, 52)
   it("Should let admin (and only admin) upgrade modules", async () => {
     const me2 = await MillionEther.deployed();
     const market = await Market.deployed();
@@ -837,12 +790,12 @@ if(ADMIN) { // (19, 19) - (20, 20), (1, 30) - (5, 40)
     const buyer = user_1;
     const renter = user_2;
 
-    // set Oracle
+    // set Oracle (1,52,1,52)
     const new_oracle_proxy = await OracleProxyStub.deployed();
     assertThrows(market.adminSetOracle(OracleProxyStub.address, {from: buyer, gas: 4712388}),
         "Some guy just set new Oracle!");
     await market.adminSetOracle(OracleProxyStub.address, {from: admin, gas: 4712388});
-    result = await me2.areaPrice.call(1,40,1,40);
+    result = await me2.areaPrice.call(1, 52, 1, 52);
     assert.equal(result.toNumber(), 1234500,
         "Couldn't read the dollar price from new oracle contract (stub)!")
     await market.adminSetOracle(OracleProxy.address, {from: admin, gas: 4712388});
@@ -852,7 +805,7 @@ if(ADMIN) { // (19, 19) - (20, 20), (1, 30) - (5, 40)
     assertThrows(me2.adminSetMarket(new_market.address, {from: buyer, gas: 4712388}),
         "Some guy just set new Oracle!");
     await me2.adminSetMarket(new_market.address, {from: admin, gas: 4712388});
-    result = await me2.areaPrice.call(1,40,1,40);
+    result = await me2.areaPrice.call(1, 52, 1, 52);
     assert.equal(result.toNumber(), 54321,
         "Couldn't get area price from new market contract (a stub)!")
     await me2.adminSetMarket(market.address, {from: admin, gas: 4712388});
@@ -862,7 +815,7 @@ if(ADMIN) { // (19, 19) - (20, 20), (1, 30) - (5, 40)
     assertThrows(me2.adminSetRentals(new_rentals.address, {from: buyer, gas: 4712388}),
         "Some guy just set new Rentals!");
     await me2.adminSetRentals(new_rentals.address, {from: admin, gas: 4712388});
-    result = await me2.areaRentPrice.call(1,40,1,40,1);
+    result = await me2.areaRentPrice.call(1, 52, 1, 52,1);
     assert.equal(result.toNumber(), 42,
         "Couldn't get area rent price from new rentals contract (a stub)!")
     await me2.adminSetRentals(rentals.address, {from: admin, gas: 4712388});
@@ -872,7 +825,7 @@ if(ADMIN) { // (19, 19) - (20, 20), (1, 30) - (5, 40)
     assertThrows(me2.adminSetAds(new_ads.address, {from: buyer, gas: 4712388}),
         "Some guy just set new Ads!");
     await me2.adminSetAds(new_ads.address, {from: admin, gas: 4712388});
-    result = await me2.isAllowedToAdvertise.call(1,40,1,40, {from: buyer, gas: 4712388});
+    result = await me2.isAllowedToAdvertise.call(1, 52, 1, 52, {from: buyer, gas: 4712388});
     assert.equal(result, true,
         "Couldn't get ads permissions from new ads contract (a stub)!")
     await me2.adminSetAds(ads.address, {from: admin, gas: 4712388});
@@ -902,13 +855,13 @@ if(ADMIN) { // (19, 19) - (20, 20), (1, 30) - (5, 40)
     await rentals.adminSetMaxRentPeriod(90, {from: admin, gas: 4712388});
   })
 
-// Admin: transfer charity
+// --------- Admin: transfer charity (1, 53)
   it("Should allow admin (and only admin) transfer charity.", async () => {
     const me2 = await MillionEther.deployed();
     const market = await Market.deployed();
     const buyer = user_1;
     const charity_org = user_2;
-    tx = await me2.buyArea(1, 40, 1, 40, {from: buyer, value: web3.toWei(1000, 'wei'), gas: 4712388});
+    tx = await me2.buyArea(1, 53, 1, 53, {from: buyer, value: web3.toWei(1000, 'wei'), gas: 4712388});
     const before = await mehState(me2);
 
     assertThrows(market.adminTransferCharity(charity_org, 42, {from: buyer, gas: 4712388}),
@@ -919,20 +872,25 @@ if(ADMIN) { // (19, 19) - (20, 20), (1, 30) - (5, 40)
 
     // asserts
     const after = await mehState(me2);
-    var deltas = no_changes;
-    deltas.user_2_bal = web3.toWei(42, 'wei');
-    deltas.charity_bal = -web3.toWei(42, 'wei');
-    
+    var deltas = {
+        user_1_bal: 0,
+        user_2_bal: web3.toWei(42, 'wei'),
+        admin_bal: 0,
+        charity_bal: -web3.toWei(42, 'wei'),
+        contract_bal: 0,
+        contract_bal_eth: 0,
+        blocks_sold: 0
+    };
     checkStateChange(before, after, deltas);
     assert.equal(await market.charityPayed.call(), 42,
         "Charity Payed didn't insreased right!");
   })
 
-// Admin: rescue funds
+// --------- Admin: rescue funds (1, 54, 5, 55)
   it("Should allow admin (and only admin) to rescue funds in emergency.", async () => {
     const me2 = await MillionEther.deployed();
     const buyer = user_1;
-    tx = await me2.buyArea(1, 41, 5, 42, {from: buyer, value: web3.toWei(10000, 'wei'), gas: 4712388});
+    tx = await me2.buyArea(1, 54, 5, 55, {from: buyer, value: web3.toWei(10000, 'wei'), gas: 4712388});
     
     assertThrows(me2.adminRescueFunds({from: buyer, gas: 4712388}),
         "Some guy just took all the money and ran (should be allowed to admin only)!");
@@ -958,6 +916,7 @@ if(ADMIN) { // (19, 19) - (20, 20), (1, 30) - (5, 40)
     const admin_bal_after = await web3.eth.getBalance(admin);
     assert.equal(admin_bal_after.minus(admin_bal_before).toNumber(), before.contract_bal_eth.minus(paid_for_gas).toNumber(),                       
         "Admin didn't recieve all rescued funds");
+    await me2.unpause({from: admin, gas: 4712388});
   })
 
 // Admin: transfer ownership
@@ -997,8 +956,49 @@ if(ADMIN) { // (19, 19) - (20, 20), (1, 30) - (5, 40)
     await market.transferOwnership(admin, {from: new_owner, gas: 4712388});
     await me2.transferOwnership(admin, {from: new_owner, gas: 4712388});
   })
+}
 
-// todo check price doubling
+
+if (CHECK_PRICE_DOUBLING) {
+// buy 10% of blocks (1, 8) - (40, 35)
+  it("should double price after 10% of blocks sold", async () => {
+    const me2 = await MillionEther.deployed();
+    const very_rich_buyer = user_1;
+    const before = await mehState(me2);
+
+    const blocks_to_buy = 1000 - before.blocks_sold;
+    const number_of_40_block_packs = Math.trunc(blocks_to_buy/40);
+    var i; var tx;
+    for (i = 0; i < number_of_40_block_packs; i++) {
+        // console.log(i);
+        tx = await me2.buyArea(1, 10+i, 40, 10+i, {from: very_rich_buyer, value: web3.toWei(40000, 'wei'), gas: 6721975});
+    }
+    logGas(tx, "buyArea from owner (40 blocks)");
+
+    const number_of_1_block_packs = blocks_to_buy % 40;
+    if (number_of_1_block_packs > 0) {
+       tx = await me2.buyArea(1, 9, number_of_1_block_packs, 9, {from: very_rich_buyer, value: web3.toWei(number_of_1_block_packs * 1000, 'wei'), gas: 6721975}); 
+    }
+
+    // buy block number 1001 at a doubled priced
+    tx = await me2.buyArea(1, 8, 1, 8, {from: very_rich_buyer, value: web3.toWei(2000, 'wei'), gas: 6721975}); 
+
+    const after = await mehState(me2);
+    const deltas = {
+        user_1_bal: 0,
+        user_2_bal: 0,
+        admin_bal: web3.toWei(blocks_to_buy * 200 + 2 * 200, 'wei') ,  // +1 one block at 2 USD
+        charity_bal: web3.toWei(blocks_to_buy * 800 + 2 * 800, 'wei'),  // +1 one block at 2 USD
+        contract_bal: 0,
+        contract_bal_eth: blocks_to_buy * 1000 + 2 * 1000,  // +1 one block at 2 USD
+        blocks_sold: blocks_to_buy + 1 // +1 one block at 2 USD
+    }
+    checkStateChange(before, after, deltas);
+  })
+}
+
+
+// Price doubling
   it("Should double price every 10% of blocks sold.", async () => {
     const me2 = await MillionEther.deployed();
     const market = await Market.deployed();
@@ -1007,14 +1007,25 @@ if(ADMIN) { // (19, 19) - (20, 20), (1, 30) - (5, 40)
     const some_guy = user_1;
     const new_owner = user_2;
 
-    result = await market.usdPrice(0);
+    assert.equal((await market.usdPrice.call(0)).toNumber(), 1, 
+        "USD price at 0 blocks sold wasn't $1");
+    assert.equal((await market.usdPrice.call(1)).toNumber(), 1, 
+        "USD price at 1 blocks sold wasn't $1");
+    assert.equal((await market.usdPrice.call(999)).toNumber(), 1, 
+        "USD price at 999 blocks sold wasn't $1");
+    assert.equal((await market.usdPrice.call(1000)).toNumber(), 2, 
+        "USD price at 1000 blocks sold wasn't $2");
+    assert.equal((await market.usdPrice.call(2000)).toNumber(), 4, 
+        "USD price at 2000 blocks sold wasn't $4");
+    assert.equal((await market.usdPrice.call(9999)).toNumber(), 512, 
+        "USD price at 0 blocks sold wasn't $512");
   })
 
+// todo sefdestruct all
   it("Clean up.", async () => {
-    // todo sefdestruct all
+    
   })
 
-// Admin: transfer ownreship
 // TODO check all necessary events
 
 });
