@@ -10,12 +10,11 @@ contract Ads is MehModule {
     RentalsInterface public rentalsContract;
    
 
-    event LogImage (uint ID, uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, string imageSourceUrl, string adUrl, string adText, address indexed publisher);
+    event LogImage (uint ID, string imageSourceUrl, string adUrl, string adText, address indexed advertiser);
 
 // ** INITIALIZE ** //
 
     constructor(address _mehAddress) MehModule(_mehAddress) {
-        // adminSetMeh(_mehAddress);
     }
 
 // ** PLACE IMAGES ** //
@@ -27,7 +26,7 @@ contract Ads is MehModule {
         view 
         returns (bool) 
     {
-        return (_advertiser == meh.ownerOf(_blockId));
+        return (_advertiser == ownerOf(_blockId));
     }
 
     function isRenter(address _advertiser, uint16 _blockId)
@@ -36,6 +35,19 @@ contract Ads is MehModule {
         returns (bool) 
     {
         return (_advertiser == meh.rentals().renterOf(_blockId));
+    }
+
+    function isAllowedToAdvertise(address _advertiser, uint16 blockId) 
+        public 
+        view
+        returns (bool)
+    {
+        if (meh.rentals().isRented(blockId)) {
+            require(isRenter(_advertiser, blockId));
+        } else {
+            require(isBlockOwner(_advertiser, blockId));
+        }
+        return true;
     }
 
     function isAllowedToAdvertise(address _advertiser, uint8 _fromX, uint8 _fromY, uint8 _toX, uint8 _toY) 
@@ -56,23 +68,24 @@ contract Ads is MehModule {
     }
 
     // place new ad to user owned or rented area
-    function placeImage
+    function placeAds
     (
         address advertiser, 
-        uint8 fromX, 
-        uint8 fromY, 
-        uint8 toX, 
-        uint8 toY, 
+        uint16[] _blockList,
         string imageSourceUrl, 
-        string adUrl, 
+        string adUrl,
         string adText
     ) 
         external
         onlyMeh
         whenNotPaused
+        returns (uint)
     {   
-        isAllowedToAdvertise(advertiser, fromX, fromY, toX, toY);
+        for (uint i = 0; i < _blockList.length; i++) {
+            isAllowedToAdvertise(advertiser, _blockList[i]);
+        }
+        emit LogImage(numImages, imageSourceUrl, adUrl, adText, advertiser);
         numImages++;
-        emit LogImage(numImages, fromX, fromY, toX, toY, imageSourceUrl, adUrl, adText, advertiser);
+        return numImages;
     }
 }

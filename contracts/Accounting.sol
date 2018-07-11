@@ -11,6 +11,8 @@ contract Accounting is DSMath, MEHAccessControl {
 // ** PAYMENT PROCESSING ** //
 
     function _depositTo(address _recipient, uint _amount) internal {
+        // require(a.balanceETH >= _value);
+        // require(_to != address(0));
         balances[_recipient] = add(balances[_recipient], _amount);
     }
 
@@ -51,5 +53,14 @@ contract Accounting is DSMath, MEHAccessControl {
         uint256 payment = address(this).balance;
         assert(payee.send(payment));
     }
+
+        // https://github.com/seedom-io/seedom-solidity/blob/574e52349755ec9e28111c3a182638e73d4eb635/contract/fundraiser.sol#L482
+        // recover() allows the owner to recover ERC20 tokens sent to this contract, for later
+    // distribution back to their original holders, upon request
+    // function recover(address _token) public onlyOwner {
+    //     ERC20 _erc20 = ERC20(_token);
+    //     uint256 _balance = _erc20.balanceOf(this);
+    //     require(_erc20.transfer(deployment._owner, _balance));
+    // }
 
 }

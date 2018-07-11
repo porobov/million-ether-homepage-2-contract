@@ -128,7 +128,7 @@ contract Market is MehModule, DSMath {
         whenNotPaused 
     {   
         for (uint i = 0; i < _blockList.length; i++) {
-            require(seller == meh.ownerOf(_blockList[i]));
+            require(seller == ownerOf(_blockList[i]));
             _sellBlock(_blockList[i], priceForEachBlockWei);
         }
     }
@@ -141,6 +141,18 @@ contract Market is MehModule, DSMath {
 
     function setSellPrice(uint16 _blockId, uint256 _sellPriceWei) internal {
         blockIdToPrice[_blockId] = _sellPriceWei;
+    }
+
+    function areaPrice(uint16[] memory _blockList) // todo maybe external?
+        public 
+        view 
+        returns (uint totalPrice) 
+    {   
+        totalPrice = 0;
+        // TODO need to check ownership here? 
+        for (uint i = 0; i < _blockList.length; i++) {
+            totalPrice += getBlockPrice(_blockList[i]);
+        }
     }
 
 // ** ADMIN ** //
@@ -185,27 +197,9 @@ contract Market is MehModule, DSMath {
         return blockPrice;
     }
 
-    function areaPrice(uint16[] memory _blockList) 
-        public 
-        view 
-        returns (uint totalPrice) 
-    {   
-        totalPrice = 0;
-        // TODO need to check ownership here? 
-        for (uint i = 0; i < _blockList.length; i++) {
-            totalPrice += getBlockPrice(_blockList[i]);
-        }
-    }
+
     
 // ** PAYMENT PROCESSING ** //
-
-    function depositTo(address _recipient, uint _amount) internal {
-        return meh.operatorDepositTo(_recipient, _amount);
-    }
-
-    function deductFrom(address _payer, uint _amount) internal {
-        return meh.operatorDeductFrom(_payer, _amount);
-    }
 
     /// @dev Reward admin and charity
     /// @notice Just for admin convinience. 
@@ -219,14 +213,6 @@ contract Market is MehModule, DSMath {
 
 // ** ERC721 ** //
 
-    function exists(uint16 _blockId) internal view  returns (bool) {
-        return meh.exists(_blockId);
-    }
-
-    function ownerOf(uint16 _blockId) internal view returns (address) {
-        return meh.ownerOf(_blockId);
-    }
-
     function mintCrowdsaleBlock(address _to, uint16 _blockId) internal {
         meh._mintCrowdsaleBlock(_to, _blockId);
     }
@@ -235,13 +221,4 @@ contract Market is MehModule, DSMath {
         meh.transferFrom(_from, _to, _blockId);  // safeTransfer has external call
         return;
     }
-
-    // https://github.com/seedom-io/seedom-solidity/blob/574e52349755ec9e28111c3a182638e73d4eb635/contract/fundraiser.sol#L482
-        // recover() allows the owner to recover ERC20 tokens sent to this contract, for later
-    // distribution back to their original holders, upon request
-    // function recover(address _token) public onlyOwner {
-    //     ERC20 _erc20 = ERC20(_token);
-    //     uint256 _balance = _erc20.balanceOf(this);
-    //     require(_erc20.transfer(deployment._owner, _balance));
-    // }
 }

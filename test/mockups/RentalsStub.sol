@@ -5,8 +5,7 @@ import "openzeppelin-solidity/contracts/lifecycle/Destructible.sol";
 contract RentalsStub is Destructible {
     
     bool public isRentals = true;
-
-    function rentPriceAndAvailability(uint16 _blockId) public view returns (uint) {
+    function blocksRentPrice(uint _numberOfPeriods, uint16[] _blockList) external view returns (uint) {
         return 42;
     }
 }

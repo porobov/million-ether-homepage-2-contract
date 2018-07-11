@@ -624,14 +624,14 @@ async function checkRentState(blockID, expected) {
     
     tx = await me2.rentOutArea(75, 1, 75, 2, 200, {from: landlord, gas: 4712388});
     tx = await me2.rentArea(75, 1, 75, 2, 2, {from: renter, value: web3.toWei(800, 'wei'), gas: 4712388})
-    assertThrows(me2.placeImage(75, 1, 75, 2, "imageSourceUrl", "adUrl", "adText",  {from: landlord, gas: 4712388}),
+    assertThrows(me2.placeAds(75, 1, 75, 2, "imageSourceUrl", "adUrl", "adText",  {from: landlord, gas: 4712388}),
         "Landlord was able to place image when rent is not expired!");
-    tx = await me2.placeImage(75, 1, 75, 2, "imageSourceUrl", "adUrl", "adText",  {from: renter, gas: 4712388});
+    tx = await me2.placeAds(75, 1, 75, 2, "imageSourceUrl", "adUrl", "adText",  {from: renter, gas: 4712388});
     tx = await rentMock.fastforwardRent(getBlockId(75, 1), {from: landlord, gas: 4712388});
     tx = await rentMock.fastforwardRent(getBlockId(75, 2), {from: landlord, gas: 4712388});
-    assertThrows(me2.placeImage(75, 1, 75, 2, "imageSourceUrl", "adUrl", "adText",  {from: renter, gas: 4712388}),
+    assertThrows(me2.placeAds(75, 1, 75, 2, "imageSourceUrl", "adUrl", "adText",  {from: renter, gas: 4712388}),
         "Landlord was able to place image when rent is not expired!");
-    tx = await me2.placeImage(75, 1, 75, 2, "imageSourceUrl", "adUrl", "adText",  {from: landlord, gas: 4712388});
+    tx = await me2.placeAds(75, 1, 75, 2, "imageSourceUrl", "adUrl", "adText",  {from: landlord, gas: 4712388});
   })
 }
 
@@ -657,9 +657,9 @@ if (ADS) {
     const some_guy = user_2;
 
     await me2.buyArea(50, 1, 54, 4, {from: advertiser, value: web3.toWei(20000, 'wei'), gas: 4712388});
-    assertThrows(me2.placeImage(50, 1, 54, 4, "imageSourceUrl", "adUrl", "adText",  {from: some_guy, gas: 4712388}),
+    assertThrows(me2.placeAds(50, 1, 54, 4, "imageSourceUrl", "adUrl", "adText",  {from: some_guy, gas: 4712388}),
         "Should've permited anybody to place ads!");
-    await me2.placeImage(50, 1, 54, 4, "imageSourceUrl", "adUrl", "adText",  {from: advertiser, gas: 4712388});
+    await me2.placeAds(50, 1, 54, 4, "imageSourceUrl", "adUrl", "adText",  {from: advertiser, gas: 4712388});
 
   })
 
@@ -677,15 +677,15 @@ if (ADS) {
         event.stopWatching();
         if (err) { throw err; }
         assert.equal(result.event, "LogImage", "Wrong event!")
-        assert.equal(result.args.publisher, advertiser, "Wrong publisher!")
+        assert.equal(result.args.advertiser, advertiser, "Wrong publisher!")
     }
 
     await me2.buyArea(55, 1, 56, 2, {from: advertiser, value: web3.toWei(4000, 'wei'), gas: 4712388});
     await me2.buyArea(55, 3, 56, 4, {from: some_guy, value: web3.toWei(4000, 'wei'), gas: 4712388});
     await me2.rentOutArea(55, 3, 56, 4, 200, {from: some_guy, gas: 4712388});
     await me2.rentArea(55, 3, 56, 4, 2, {from: advertiser, value: web3.toWei(1600, 'wei'), gas: 4712388})
-    tx = await me2.placeImage(55, 1, 56, 4, "imageSourceUrl", "adUrl", "adText",  {from: advertiser, gas: 4712388});
-    logGas(tx, "placeImage(55, 1, 56, 4)");
+    tx = await me2.placeAds(55, 1, 56, 4, "imageSourceUrl", "adUrl", "adText",  {from: advertiser, gas: 4712388});
+    logGas(tx, "placeAds(55, 1, 56, 4)");
     await awaitEvent(event, watcher);
     
   })
@@ -744,7 +744,7 @@ if(ADMIN) { // (59, 59) - (60, 60), (1, 30) - (5, 40)
     await market.pause({from: admin, gas: 4712388});
     await rentals.pause({from: admin, gas: 4712388});
     await ads.pause({from: admin, gas: 4712388});
-    assertThrows(me2.placeImage(1, 50, 1, 50, "imageSourceUrl", "adUrl", "adText",  {from: buyer, gas: 4712388}),
+    assertThrows(me2.placeAds(1, 50, 1, 50, "imageSourceUrl", "adUrl", "adText",  {from: buyer, gas: 4712388}),
         "Should've permited to place ads when paused!");
     assertThrows(me2.sellArea(1, 50, 1, 50, 2, {from: buyer, gas: 4712388}),
         "Sold a block when paused!");
@@ -762,7 +762,7 @@ if(ADMIN) { // (59, 59) - (60, 60), (1, 30) - (5, 40)
     await me2.pause({from: admin, gas: 4712388});
     assertThrows(me2.withdraw({from: buyer, gas: 4712388}),
         "withdrawed when paused!");
-    assertThrows(me2.placeImage(1, 50, 1, 50, "imageSourceUrl", "adUrl", "adText",  {from: buyer, gas: 4712388}),
+    assertThrows(me2.placeAds(1, 50, 1, 50, "imageSourceUrl", "adUrl", "adText",  {from: buyer, gas: 4712388}),
         "Should've permited to place ads when paused!");
     assertThrows(me2.safeTransferFrom(buyer, renter, getBlockId(1, 50), {from: buyer, gas: 4712388}),
         "Safe Transfered block when paused!");    

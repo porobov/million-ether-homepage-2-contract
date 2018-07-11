@@ -7,7 +7,8 @@ contract MEH is MehERC721, Accounting {
 
     // Counters
     uint public numOwnershipStatuses = 0;
-    uint public numImages = 0;
+
+    event LogAds(uint ID, string imageSourceUrl, string adUrl, string adText, address indexed advertiser);  // todo emit real event
 
     // TODO check for overflow 
     // TODO set modifier to guard >100, <0 etc.
@@ -15,15 +16,15 @@ contract MEH is MehERC721, Accounting {
         return (uint16(_y) - 1) * 100 + uint16(_x);
     }
 
-    function countBlocks(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY) internal pure returns (uint){
-        return (toX - fromX + 1) * (toY - fromY + 1);
+    function countBlocks(uint8 fX, uint8 fY, uint8 toX, uint8 toY) internal pure returns (uint){
+        return (toX - fX + 1) * (toY - fY + 1);
     }
 
-    function blocksList(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY) internal pure returns (uint16[] memory r) {
+    function blocksList(uint8 fX, uint8 fY, uint8 toX, uint8 toY) internal pure returns (uint16[] memory r) {
         uint i = 0;
-        r = new uint16[](countBlocks(fromX, fromY, toX, toY));
-        for (uint8 ix=fromX; ix<=toX; ix++) {
-            for (uint8 iy=fromY; iy<=toY; iy++) {
+        r = new uint16[](countBlocks(fX, fY, toX, toY));
+        for (uint8 ix=fX; ix<=toX; ix++) {
+            for (uint8 iy=fY; iy<=toY; iy++) {
                 r[i] = blockID(ix, iy);
                 i++;
             }
@@ -31,114 +32,93 @@ contract MEH is MehERC721, Accounting {
     }
 
     // function instead of modifier as modifier used too much stack for placeImage and rentBlocks
-    function isLegalCoordinates(uint8 _fromX, uint8 _fromY, uint8 _toX, uint8 _toY) private pure returns (bool) {
-        return ((_fromX >= 1) && (_fromY >=1)  && (_toX <= 100) && (_toY <= 100) 
-            && (_fromX <= _toX) && (_fromY <= _toY));
+    function isLegalCoordinates(uint8 _fX, uint8 _fY, uint8 _toX, uint8 _toY) private pure returns (bool) {
+        return ((_fX >= 1) && (_fY >=1)  && (_toX <= 100) && (_toY <= 100) 
+            && (_fX <= _toX) && (_fY <= _toY));
+        // TODO need to linit total number of blocs here?
     }
 
 // ** BUY AND SELL BLOCKS ** //
 
-    function buyArea(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY) 
+    function buyArea(uint8 fX, uint8 fY, uint8 toX, uint8 toY) 
         external
         whenNotPaused
         payable
     {   
-        require(isLegalCoordinates(fromX, fromY, toX, toY));
-        // require(msg.value >= areaPrice(fromX, fromY, toX, toY));  //TODO find alternative, because it will not let buy from current balance
+        require(isLegalCoordinates(fX, fY, toX, toY));
+        // require(msg.value >= areaPrice(fX, fY, toX, toY));  //TODO find alternative, because it will not let buy from current balance
         _depositTo(msg.sender, msg.value);
-        market.buyBlocks(msg.sender, blocksList(fromX, fromY, toX, toY));
+        market.buyBlocks(msg.sender, blocksList(fX, fY, toX, toY));
         // numOwnershipStatuses++;
-        // emit LogOwnership(numOwnershipStatuses, fromX, fromY, toX, toY, msg.sender, 0);
+        // emit LogOwnership(numOwnershipStatuses, fX, fY, toX, toY, msg.sender, 0);
     }
 
-    // sell an area of blocks at coordinates [fromX, fromY, toX, toY]
+    // sell an area of blocks at coordinates [fX, fY, toX, toY]
     // (priceForEachBlockCents = 0 - not for sale)
-    function sellArea(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, uint priceForEachBlockWei) // TODO sellTo
+    // TODO what if a huge range of coordinates is selected
+    function sellArea(uint8 fX, uint8 fY, uint8 toX, uint8 toY, uint priceForEachBlockWei) // TODO sellTo
         external 
         whenNotPaused
     {   
-        require(isLegalCoordinates(fromX, fromY, toX, toY));
-        market.sellBlocks(msg.sender, priceForEachBlockWei, blocksList(fromX, fromY, toX, toY));
+        require(isLegalCoordinates(fX, fY, toX, toY));
+        market.sellBlocks(msg.sender, priceForEachBlockWei, blocksList(fX, fY, toX, toY));
         // numOwnershipStatuses++;
-        // emit LogOwnership(numOwnershipStatuses, fromX, fromY, toX, toY, address(0x0), priceForEachBlockCents);
+        // emit LogOwnership(numOwnershipStatuses, fX, fY, toX, toY, address(0x0), priceForEachBlockCents);
     }
 
     // area price
-    function areaPrice(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY) 
+    function areaPrice(uint8 fX, uint8 fY, uint8 toX, uint8 toY) 
         public 
         view 
         returns (uint) 
     {
-        require(isLegalCoordinates(fromX, fromY, toX, toY));
-        return market.areaPrice(blocksList(fromX, fromY, toX, toY));
+        require(isLegalCoordinates(fX, fY, toX, toY));
+        return market.areaPrice(blocksList(fX, fY, toX, toY));
     }
 
 // ** RENT OUT AND RENT BLOCKS ** //
         
-    // @dev Rent out an area of blocks at coordinates [fromX, fromY, toX, toY]
+    // @dev Rent out an area of blocks at coordinates [fX, fY, toX, toY]
     // @notice INFOf _rentPricePerPeriodWei = 0 then not for rent
-    function rentOutArea(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, uint _rentPricePerPeriodWei)  // TODO maxRentPeriod, minRentPeriod,  
+    function rentOutArea(uint8 fX, uint8 fY, uint8 toX, uint8 toY, uint _rentPricePerPeriodWei)  // TODO maxRentPeriod, minRentPeriod,  
         external
         whenNotPaused
     {   
-        require(isLegalCoordinates(fromX, fromY, toX, toY));
-
-        for (uint8 ix=fromX; ix<=toX; ix++) {
-            for (uint8 iy=fromY; iy<=toY; iy++) {
-                uint16 _blockId = blockID(ix, iy);
-                require(msg.sender == ownerOf(_blockId));
-                rentals.rentOutBlock(_blockId, _rentPricePerPeriodWei);
-            }
-        }
+        require(isLegalCoordinates(fX, fY, toX, toY));
+        rentals.rentOutBlocks(msg.sender, _rentPricePerPeriodWei, blocksList(fX, fY, toX, toY));
         // numRentStatuses++;
-        // LogRent(numRentStatuses, fromX, fromY, toX, toY, hourlyRentForEachBlockInWei, 0, address(0x0));
+        // LogRent(numRentStatuses, fX, fY, toX, toY, hourlyRentForEachBlockInWei, 0, address(0x0));
     }
     
-    function rentArea(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, uint _numberOfPeriods)  // TODO RentFrom
+    function rentArea(uint8 fX, uint8 fY, uint8 toX, uint8 toY, uint _numberOfPeriods)  // TODO RentFrom
         external
         payable
         whenNotPaused
     {
-        require(isLegalCoordinates(fromX, fromY, toX, toY));
-        // require(msg.value >= areaRentPrice(fromX, fromY, toX, toY, _numberOfPeriods)); //TODO will permit buying from current balance
-
+        require(isLegalCoordinates(fX, fY, toX, toY));
+        // require(msg.value >= areaRentPrice(fX, fY, toX, toY, _numberOfPeriods)); //TODO will permit buying from current balance
         _depositTo(msg.sender, msg.value);
-
-        for (uint8 ix=fromX; ix<=toX; ix++) {
-            for (uint8 iy=fromY; iy<=toY; iy++) {
-                uint16 _blockId = blockID(ix, iy);
-                require(msg.sender != ownerOf(_blockId));
-                rentals.rentBlock(msg.sender, _blockId, _numberOfPeriods);   // TODO RentFrom
-            }
-        }
+        rentals.rentBlocks(msg.sender, _numberOfPeriods, blocksList(fX, fY, toX, toY));   // TODO RentFrom
         // numRentStatuses++;
-        // LogRent(numRentStatuses, fromX, fromY, toX, toY, 0, rentedTill, msg.sender);
+        // LogRent(numRentStatuses, fX, fY, toX, toY, 0, rentedTill, msg.sender);
     }
 
-        // rent price for period 
-    function areaRentPrice(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, uint _numberOfPeriods) 
+    // rent price for period 
+    function areaRentPrice(uint8 fX, uint8 fY, uint8 toX, uint8 toY, uint _numberOfPeriods)
         public 
         view 
         returns (uint) 
     {
-        require(isLegalCoordinates(fromX, fromY, toX, toY));
-
-        uint totalPrice = 0;
-        for (uint8 ix=fromX; ix<=toX; ix++) {
-            for (uint8 iy=fromY; iy<=toY; iy++) {
-                uint16 _blockId = blockID(ix, iy);
-                // TODO need to check ownership here? 
-                totalPrice += rentals.rentPriceAndAvailability(_blockId) * _numberOfPeriods;
-            }
-        }
-        return totalPrice;
+        require(isLegalCoordinates(fX, fY, toX, toY));
+        return rentals.blocksRentPrice(_numberOfPeriods, blocksList(fX, fY, toX, toY));
     }
 
 // ** PLACE ADS ** //
-
-    function placeImage(
-        uint8 fromX, 
-        uint8 fromY, 
+    
+    // paintArea
+    function placeAds( 
+        uint8 fX, 
+        uint8 fY, 
         uint8 toX, 
         uint8 toY, 
         string imageSourceUrl, 
@@ -148,13 +128,16 @@ contract MEH is MehERC721, Accounting {
         external
         whenNotPaused
     {   
-        require(isLegalCoordinates(fromX, fromY, toX, toY));
-        ads.placeImage(msg.sender, fromX, fromY, toX, toY, imageSourceUrl, adUrl, adText);
-    }
+        require(isLegalCoordinates(fX, fY, toX, toY));
+        // paintBlocks
+        uint AdsId = ads.placeAds(msg.sender, blocksList(fX, fY, toX, toY), imageSourceUrl, adUrl, adText);
+        // todo emit full event here 
+    }   
 
+    // canPaint
     function isAllowedToAdvertise(
-        uint8 fromX, 
-        uint8 fromY, 
+        uint8 fX, 
+        uint8 fY, 
         uint8 toX, 
         uint8 toY
     ) 
@@ -162,8 +145,8 @@ contract MEH is MehERC721, Accounting {
         view
         returns (bool)
     {
-        require(isLegalCoordinates(fromX, fromY, toX, toY));
-        return ads.isAllowedToAdvertise(msg.sender, fromX, fromY, toX, toY);
+        require(isLegalCoordinates(fX, fY, toX, toY));
+        return ads.isAllowedToAdvertise(msg.sender, blocksList(fX, fY, toX, toY));
     }
 
 // ** INFO GETTERS ** //
@@ -171,6 +154,4 @@ contract MEH is MehERC721, Accounting {
     function getBlockOwner(uint8 x, uint8 y) external view returns (address) {
         return ownerOf(blockID(x, y));
     }
-
-
 }
