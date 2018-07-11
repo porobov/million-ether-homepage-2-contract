@@ -4,10 +4,13 @@ import "openzeppelin-solidity/contracts/lifecycle/Pausable.sol";
 
 contract MarketInerface {
     function isMarket() public returns (bool) {}
-    function _buyBlock(address, uint16) external {}
-    function _sellBlock(uint16, uint) external {}
+    // function _buyBlock(address, uint16) external {}
+    // function _sellBlock(uint16, uint) external {}
+    function buyBlocks(address, uint16[]) external {}
+    function sellBlocks(address, uint, uint16[]) external {}
     function isOnSale(uint16) public view returns (bool) {}
-    function areaPrice(uint8, uint8, uint8, uint8) public view returns (uint) {}
+    // function areaPrice(uint8, uint8, uint8, uint8) public view returns (uint) {}
+    function areaPrice(uint16[] memory) public view returns (uint) {}
 }
 
 contract RentalsInterface {

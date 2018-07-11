@@ -1022,7 +1022,7 @@ if (CHECK_PRICE_DOUBLING) {
 }
 
 
-
+// TODO check insuficient funds 
 
 // todo sefdestruct all
   it("Clean up.", async () => {

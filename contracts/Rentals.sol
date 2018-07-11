@@ -6,7 +6,7 @@ contract Rentals is MehModule {
     
     bool public isRentals = true;
 
-    // deafaul
+    // deafauls
     /// @notice Nobidy can cancel rent untill rent period is over
     uint public rentPeriod = 1 days;  // and thus min rent period
     uint public maxRentPeriod = 90;  // can be changed in settings 
@@ -23,15 +23,6 @@ contract Rentals is MehModule {
     mapping(uint16 => uint) public blockIdToRentPrice;
 
     constructor(address _mehAddress) MehModule(_mehAddress) {  // TODO move to MehModule
-    }
-
-    // TODO create library (same for Market) - into MehModule maybe
-    function depositTo(address _recipient, uint _amount) internal {
-        return meh.operatorDepositTo(_recipient, _amount);
-    }
-
-    function deductFrom(address _payer, uint _amount) internal {
-        return meh.operatorDeductFrom(_payer, _amount);
     }
 
 // ** RENT AND RENT OUT BLOCKS ** //
@@ -90,5 +81,14 @@ contract Rentals is MehModule {
     function adminSetMaxRentPeriod(uint newMaxRentPeriod) external onlyOwner {
         require (newMaxRentPeriod > 0);
         maxRentPeriod = newMaxRentPeriod;
+    }
+
+    // TODO create library (same for Market) - into MehModule maybe
+    function depositTo(address _recipient, uint _amount) internal {
+        return meh.operatorDepositTo(_recipient, _amount);
+    }
+
+    function deductFrom(address _payer, uint _amount) internal {
+        return meh.operatorDeductFrom(_payer, _amount);
     }
 }

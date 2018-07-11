@@ -65,6 +65,138 @@ contract Market is MehModule, DSMath {
         adminSetOracle(_oracleProxyAddress);
     }
 
+
+
+// ** BUY AND SELL BLOCKS ** //
+
+    // doubles price every 1000 blocks sold
+    function crowdsalePriceUSD(uint16 _blocksSold) internal pure returns (uint16) {
+        return uint16(2 ** (_blocksSold / 1000));  // check overflow?
+    }
+
+    function crowdsalePriceWei() internal view returns (uint) {
+        uint16 blocksSold = uint16(meh.totalSupply());
+        uint256 oneCentInWei = usd.oneCentInWei();
+        require(oneCentInWei > 0);
+        return mul(mul(oneCentInWei, crowdsalePriceUSD(blocksSold)), 100);
+    }
+
+    function blockSellPrice(uint16 _blockId) internal view returns (uint) {
+        return blockIdToPrice[_blockId];
+    }
+
+    function buyBlocks(address buyer, uint16[] _blockList) 
+        external
+        onlyMeh
+        whenNotPaused 
+    {   
+        for (uint i = 0; i < _blockList.length; i++) {
+            _buyBlock(buyer, _blockList[i]);
+        }
+    }
+
+    function _buyBlock(address _buyer, uint16 _blockId) internal {
+        uint blockPrice = 0;
+        if (exists(_blockId)) {
+            // buy from current owner
+            blockPrice = blockSellPrice(_blockId);
+            address blockOwner = ownerOf(_blockId);
+            require(blockPrice > 0);
+            require(_buyer != blockOwner);
+            deductFrom(_buyer, blockPrice);
+            transferFrom(blockOwner, _buyer, _blockId);
+            setSellPrice(_blockId, 0);
+            depositTo(blockOwner, blockPrice);   //  pay seller
+            return;                            //  report zero blocks bought at crowdsale
+        } else { 
+            // buy at crowdsale:
+            blockPrice = crowdsalePriceWei();
+            deductFrom(_buyer, blockPrice);
+            mintCrowdsaleBlock(_buyer, _blockId);
+            depositToAdminAndCharity(blockPrice);//  pay contract owner and charity
+            return;                              //  report one block bought at crowdsale
+        }
+    }
+
+    function isOnSale(uint16 _blockId) public view returns (bool) {
+        return (blockIdToPrice[_blockId] > 0);
+    }
+
+    function sellBlocks(address seller, uint priceForEachBlockWei, uint16[] _blockList) 
+        external
+        onlyMeh
+        whenNotPaused 
+    {   
+        for (uint i = 0; i < _blockList.length; i++) {
+            require(seller == meh.ownerOf(_blockList[i]));
+            _sellBlock(_blockList[i], priceForEachBlockWei);
+        }
+    }
+
+    /// @dev Trnsfer blockId to market, set or update price tag. Return block to seller.
+    /// @notice _sellPriceWei = 0 - cancel sale, return blockId to seller
+    function _sellBlock(uint16 _blockId, uint _sellPriceWei) internal {
+        setSellPrice(_blockId, _sellPriceWei);
+    }
+
+    function setSellPrice(uint16 _blockId, uint256 _sellPriceWei) internal {
+        blockIdToPrice[_blockId] = _sellPriceWei;
+    }
+
+// ** ADMIN ** //
+
+    // transfer charity to an address (internally)
+    function adminTransferCharity(address charityAddress, uint amount) external onlyOwner {
+        require(charityAddress != owner);
+        deductFrom(charityVault, amount);
+        depositTo(charityAddress, amount);
+        charityPayed += amount;
+        emit LogCharityTransfer(charityAddress, amount);
+    }
+
+    function adminSetOracle(address _address) public onlyOwner {
+        OracleProxy candidateContract = OracleProxy(_address);
+        require(candidateContract.isOracleProxy());
+        usd = candidateContract;
+        // emit ContractUpgrade(_v2Address);
+        emit LogNewOracleProxy(_address);
+    }
+
+    // import old contract blocks
+    function adminImportOldMEBlock(uint8 x, uint8 y) external onlyOwner {
+        uint16 blockId = meh.blockID(x, y);
+        require(!(exists(blockId)));
+        (address oldLandlord, uint i, uint s) = oldMillionEther.getBlockInfo(x, y);  // WARN! sell price s is in wei
+        require(oldLandlord != address(0));
+        mintCrowdsaleBlock(oldLandlord, blockId);
+    }
+
+// INFO
+
+    function getBlockPrice(uint16 _blockId) view returns (uint) {
+        uint blockPrice = 0;
+        // TODO need to check ownership here? 
+        if (exists(_blockId)) {
+            blockPrice = blockSellPrice(_blockId);
+            require(blockPrice > 0);
+        } else {
+            blockPrice = crowdsalePriceWei();
+        }
+        return blockPrice;
+    }
+
+    function areaPrice(uint16[] memory _blockList) 
+        public 
+        view 
+        returns (uint totalPrice) 
+    {   
+        totalPrice = 0;
+        // TODO need to check ownership here? 
+        for (uint i = 0; i < _blockList.length; i++) {
+            totalPrice += getBlockPrice(_blockList[i]);
+        }
+    }
+    
 // ** PAYMENT PROCESSING ** //
 
     function depositTo(address _recipient, uint _amount) internal {
@@ -104,154 +236,12 @@ contract Market is MehModule, DSMath {
         return;
     }
 
-// ** BUY AND SELL BLOCKS ** //
-
-    // doubles price every 1000 blocks sold
-    function crowdsalePriceUSD(uint16 _blocksSold) internal pure returns (uint16) {
-        return uint16(2 ** (_blocksSold / 1000));  // check overflow?
-    }
-
-    function crowdsalePriceWei() internal view returns (uint) {
-        uint16 blocksSold = uint16(meh.totalSupply());
-        uint256 oneCentInWei = usd.oneCentInWei();
-        require(oneCentInWei > 0);
-        return mul(mul(oneCentInWei, crowdsalePriceUSD(blocksSold)), 100);
-    }
-
-    function blockSellPrice(uint16 _blockId) internal view returns (uint) {
-        return blockIdToPrice[_blockId];
-    }
-
-
-    function _buyBlock(address _buyer, uint16 _blockId)
-        external onlyMeh whenNotPaused
-    {
-        uint blockPrice = 0;
-        if (exists(_blockId)) {
-            // buy from current owner
-            blockPrice = blockSellPrice(_blockId);
-            address blockOwner = ownerOf(_blockId);
-            require(blockPrice > 0);
-            require(_buyer != blockOwner);
-            deductFrom(_buyer, blockPrice);
-            transferFrom(blockOwner, _buyer, _blockId);
-            setSellPrice(_blockId, 0);
-            depositTo(blockOwner, blockPrice);   //  pay seller
-            return;                            //  report zero blocks bought at crowdsale
-        } else { 
-            // buy at crowdsale:
-            blockPrice = crowdsalePriceWei();
-            deductFrom(_buyer, blockPrice);
-            mintCrowdsaleBlock(_buyer, _blockId);
-            depositToAdminAndCharity(blockPrice);//  pay contract owner and charity
-            return;                              //  report one block bought at crowdsale
-        }
-    }
-
-    function isOnSale(uint16 _blockId) public view returns (bool) {
-        return (blockIdToPrice[_blockId] > 0);
-    }
-
-    /// @dev Trnsfer blockId to market, set or update price tag. Return block to seller.
-    /// @notice _sellPriceWei = 0 - cancel sale, return blockId to seller
-    function _sellBlock(uint16 _blockId, uint _sellPriceWei) external onlyMeh whenNotPaused {
-        setSellPrice(_blockId, _sellPriceWei);
-    }
-
-    function setSellPrice(uint16 _blockId, uint256 _sellPriceWei) internal {
-        blockIdToPrice[_blockId] = _sellPriceWei;
-    }
-
-// ** ADMIN ** //
-
-    // transfer charity to an address (internally)
-    function adminTransferCharity(address charityAddress, uint amount) external onlyOwner {
-        require(charityAddress != owner);
-        deductFrom(charityVault, amount);
-        depositTo(charityAddress, amount);
-        charityPayed += amount;
-        emit LogCharityTransfer(charityAddress, amount);
-    }
-
-    function adminSetOracle(address _address) public onlyOwner {
-        OracleProxy candidateContract = OracleProxy(_address);
-        require(candidateContract.isOracleProxy());
-        usd = candidateContract;
-        // emit ContractUpgrade(_v2Address);
-        emit LogNewOracleProxy(_address);
-    }
-
-    // import old contract blocks
-    function adminImportOldMEBlock(uint8 x, uint8 y) external onlyOwner {
-        uint16 blockId = meh.blockID(x, y);
-        require(!(exists(blockId)));
-        (address oldLandlord, uint i, uint s) = oldMillionEther.getBlockInfo(x, y);  // WARN! sell price s is in wei
-        require(oldLandlord != address(0));
-        mintCrowdsaleBlock(oldLandlord, blockId);
-    }
-
-// INFO
-    
-    function map(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY, 
-                    function (uint16) view returns (uint) f) internal view returns (uint)  
-    {
-        uint total = 0;
-        for (uint8 ix=fromX; ix<=toX; ix++) {
-            for (uint8 iy=fromY; iy<=toY; iy++) {
-                total += f(meh.blockID(ix, iy));
-            }
-        }
-        return total;
-    }
-
-    function getBlockPrice(uint16 _blockId) view returns (uint) {
-        uint blockPrice = 0;
-        // TODO need to check ownership here? 
-        if (exists(_blockId)) {
-            blockPrice = blockSellPrice(_blockId);
-            require(blockPrice > 0);
-        } else {
-            blockPrice = crowdsalePriceWei();
-        }
-        return blockPrice;
-    }
-
-
-    // function blocksList(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY) internal view returns (uint16[] memory r)  
-    // {
-    //     uint i = 0;
-    //     r = new uint16[](self.length);
-    //     for (uint8 ix=fromX; ix<=toX; ix++) {
-    //         for (uint8 iy=fromY; iy<=toY; iy++) {
-                
-    // for (uint i = 0; i < self.length; i++) {
-    //   r[i] = f(self[i]);
-    //             total += f(meh.blockID(ix, iy));
-    //             i++;
-    //         }
-    //     }
+    // https://github.com/seedom-io/seedom-solidity/blob/574e52349755ec9e28111c3a182638e73d4eb635/contract/fundraiser.sol#L482
+        // recover() allows the owner to recover ERC20 tokens sent to this contract, for later
+    // distribution back to their original holders, upon request
+    // function recover(address _token) public onlyOwner {
+    //     ERC20 _erc20 = ERC20(_token);
+    //     uint256 _balance = _erc20.balanceOf(this);
+    //     require(_erc20.transfer(deployment._owner, _balance));
     // }
-
-    function areaPrice(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY) 
-        public 
-        view 
-        returns (uint) 
-    {
-        // uint totalPrice = 0;
-        // uint blockPrice = 0;
-        // for (uint8 ix=fromX; ix<=toX; ix++) {
-        //     for (uint8 iy=fromY; iy<=toY; iy++) {
-        //         uint16 _blockId = meh.blockID(ix, iy);
-        //         // TODO need to check ownership here? 
-        //         if (exists(_blockId)) {
-        //             blockPrice = blockSellPrice(_blockId);
-        //             require(blockPrice > 0);
-        //         } else {
-        //             blockPrice = crowdsalePriceWei();
-        //         }
-        //         totalPrice += blockPrice;
-        //     }
-        // }
-        return map(fromX, fromY, toX, toY, getBlockPrice);
-    }
 }

@@ -6,7 +6,7 @@ contract MarketStub is Destructible {
     
     bool public isMarket = true;
 
-    function areaPrice(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY) 
+    function areaPrice(uint16[] memory _blockList) 
         public 
         view 
         returns (uint) 

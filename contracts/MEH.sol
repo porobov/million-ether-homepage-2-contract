@@ -15,6 +15,21 @@ contract MEH is MehERC721, Accounting {
         return (uint16(_y) - 1) * 100 + uint16(_x);
     }
 
+    function countBlocks(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY) internal pure returns (uint){
+        return (toX - fromX + 1) * (toY - fromY + 1);
+    }
+
+    function blocksList(uint8 fromX, uint8 fromY, uint8 toX, uint8 toY) internal pure returns (uint16[] memory r) {
+        uint i = 0;
+        r = new uint16[](countBlocks(fromX, fromY, toX, toY));
+        for (uint8 ix=fromX; ix<=toX; ix++) {
+            for (uint8 iy=fromY; iy<=toY; iy++) {
+                r[i] = blockID(ix, iy);
+                i++;
+            }
+        }
+    }
+
     // function instead of modifier as modifier used too much stack for placeImage and rentBlocks
     function isLegalCoordinates(uint8 _fromX, uint8 _fromY, uint8 _toX, uint8 _toY) private pure returns (bool) {
         return ((_fromX >= 1) && (_fromY >=1)  && (_toX <= 100) && (_toY <= 100) 
@@ -29,16 +44,9 @@ contract MEH is MehERC721, Accounting {
         payable
     {   
         require(isLegalCoordinates(fromX, fromY, toX, toY));
-        // require enough funds
+        // require(msg.value >= areaPrice(fromX, fromY, toX, toY));  //TODO find alternative, because it will not let buy from current balance
         _depositTo(msg.sender, msg.value);
-
-        for (uint8 ix=fromX; ix<=toX; ix++) {
-            for (uint8 iy=fromY; iy<=toY; iy++) {
-                // uint16 blockId = blockID(ix, iy);
-                // require(msg.sender != ownerOf(blockId));  // thows, because blocks may not exist
-                market._buyBlock(msg.sender, blockID(ix, iy));
-            }
-        }
+        market.buyBlocks(msg.sender, blocksList(fromX, fromY, toX, toY));
         // numOwnershipStatuses++;
         // emit LogOwnership(numOwnershipStatuses, fromX, fromY, toX, toY, msg.sender, 0);
     }
@@ -50,15 +58,7 @@ contract MEH is MehERC721, Accounting {
         whenNotPaused
     {   
         require(isLegalCoordinates(fromX, fromY, toX, toY));
-
-        for (uint8 ix=fromX; ix<=toX; ix++) {
-            for (uint8 iy=fromY; iy<=toY; iy++) {
-                // only owner is to set, update price or cancel
-                uint16 _blockId = blockID(ix, iy);
-                require(msg.sender == ownerOf(_blockId));
-                market._sellBlock(_blockId, priceForEachBlockWei);
-            }
-        }
+        market.sellBlocks(msg.sender, priceForEachBlockWei, blocksList(fromX, fromY, toX, toY));
         // numOwnershipStatuses++;
         // emit LogOwnership(numOwnershipStatuses, fromX, fromY, toX, toY, address(0x0), priceForEachBlockCents);
     }
@@ -70,7 +70,7 @@ contract MEH is MehERC721, Accounting {
         returns (uint) 
     {
         require(isLegalCoordinates(fromX, fromY, toX, toY));
-        return market.areaPrice(fromX, fromY, toX, toY);
+        return market.areaPrice(blocksList(fromX, fromY, toX, toY));
     }
 
 // ** RENT OUT AND RENT BLOCKS ** //
@@ -98,9 +98,9 @@ contract MEH is MehERC721, Accounting {
         external
         payable
         whenNotPaused
-    {   
+    {
         require(isLegalCoordinates(fromX, fromY, toX, toY));
-        require(msg.value >= areaRentPrice(fromX, fromY, toX, toY, _numberOfPeriods));
+        // require(msg.value >= areaRentPrice(fromX, fromY, toX, toY, _numberOfPeriods)); //TODO will permit buying from current balance
 
         _depositTo(msg.sender, msg.value);
 
