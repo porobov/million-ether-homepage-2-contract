@@ -3,11 +3,10 @@ pragma solidity ^0.4.24;
 import "openzeppelin-solidity/contracts/lifecycle/Pausable.sol";
 
 contract MarketInerface {
-    function buyBlocks(address, uint16[]) external {}
-    function sellBlocks(address, uint, uint16[]) external {}
+    function buyBlocks(address, uint16[]) external returns (uint) {}
+    function sellBlocks(address, uint, uint16[]) external returns (uint) {}
     function isMarket() public returns (bool) {}  // todo view
     function isOnSale(uint16) public view returns (bool) {}
-    // function areaPrice(uint8, uint8, uint8, uint8) public view returns (uint) {}
     function areaPrice(uint16[] memory) public view returns (uint) {}
 }
 
@@ -15,20 +14,18 @@ contract RentalsInterface {
     // function rentOutBlock(uint16, uint) external {}
     // function rentBlock (address, uint16, uint) external {}
     // function rentPriceAndAvailability(uint16) public view returns (uint) {}
-    function rentOutBlocks(address, uint, uint16[]) external {}
-    function rentBlocks(address, uint, uint16[]) external {}
+    function rentOutBlocks(address, uint, uint16[]) external returns (uint) {}
+    function rentBlocks(address, uint, uint16[]) external returns (uint) {}
     function blocksRentPrice(uint, uint16[]) external view returns (uint) {}
-    function isRentals() public returns (bool) {}
+    function isRentals() public returns (bool) {}  // todo view
     function isRented(uint16) public view returns (bool) {}
     function renterOf(uint16) public view returns (address) {}
 }
 
 contract AdsInterface {
-    function isAds() public returns (bool) {}
-    function placeImage(address, uint8, uint8, uint8, uint8, string, string, string) external {}
-    function isAllowedToAdvertise(address, uint8, uint8, uint8, uint8) public view returns (bool) {}
-    function isAllowedToAdvertise(address, uint16[]) public view returns (bool) {}
-    function placeAds (address, uint16[], string, string,string adText) external returns (uint) {}
+    function paintBlocks(address, uint16[], string, string, string) external returns (uint) {}
+    function canPaintBlocks(address, uint16[]) public view returns (bool) {}
+    function isAds() public view returns (bool) {}
 }
 
 contract MEHAccessControl is Pausable {

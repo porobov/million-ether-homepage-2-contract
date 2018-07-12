@@ -54,6 +54,10 @@ contract Accounting is DSMath, MEHAccessControl {
         assert(payee.send(payment));
     }
 
+    function canPay(uint needed) internal view returns (bool) {
+        return (msg.value + balances[msg.sender] >= needed);  // TODO safe math
+    }
+
         // https://github.com/seedom-io/seedom-solidity/blob/574e52349755ec9e28111c3a182638e73d4eb635/contract/fundraiser.sol#L482
         // recover() allows the owner to recover ERC20 tokens sent to this contract, for later
     // distribution back to their original holders, upon request

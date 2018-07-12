@@ -671,12 +671,12 @@ if (ADS) {
     const advertiser = user_1;
     const some_guy = user_2;
 
-    let event = ads.LogImage({});
+    let event = me2.LogAds({});
     
     let watcher = async function (err, result) {
         event.stopWatching();
         if (err) { throw err; }
-        assert.equal(result.event, "LogImage", "Wrong event!")
+        assert.equal(result.event, "LogAds", "Wrong event!")
         assert.equal(result.args.advertiser, advertiser, "Wrong publisher!")
     }
 
@@ -826,9 +826,9 @@ if(ADMIN) { // (59, 59) - (60, 60), (1, 30) - (5, 40)
     assertThrows(me2.adminSetAds(new_ads.address, {from: buyer, gas: 4712388}),
         "Some guy just set new Ads!");
     await me2.adminSetAds(new_ads.address, {from: admin, gas: 4712388});
-    result = await me2.isAllowedToAdvertise.call(1, 52, 1, 52, {from: buyer, gas: 4712388});
+    result = await me2.canAdvertise.call(buyer, 1, 52, 1, 52, {from: buyer, gas: 4712388});
     assert.equal(result, true,
-        "Couldn't get ads permissions from new ads contract (a stub)!")
+        "Couldn't get 42 from new ads contract (a stub)!")
     await me2.adminSetAds(ads.address, {from: admin, gas: 4712388});
 
     // try connecting wrong modules

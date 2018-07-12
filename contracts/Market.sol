@@ -26,8 +26,8 @@ contract Market is MehModule, DSMath {
     
     // Contracts
     bool public isMarket = true;
-    OldeMillionEther oldMillionEther;
-    OracleProxy usd;
+    OldeMillionEther public oldMillionEther;
+    OracleProxy public usd;
 
     // Charity
     address public constant charityVault = 0x616c6C20796F75206e656564206973206C6f7665; // "all you need is love" in hex format. Insures nobody has access to it. Used for internal acounting only. 
@@ -36,24 +36,13 @@ contract Market is MehModule, DSMath {
     // Map from block ID to their corresponding price tag.
     /// @notice uint256 instead of uint16 for ERC721 compliance
     mapping (uint16 => uint256) blockIdToPrice;
-
-    // Events
-    // price > 0 - for sale. price = 0 - sold (or marked as not for sale). 
-    // address(0x0) - actions of current landlord
-    event LogOwnership (
-        uint ID, 
-        uint8 fromX, 
-        uint8 fromY, 
-        uint8 toX, 
-        uint8 toY, 
-        address indexed newLandlord, 
-        uint newPrice); 
+    
+    // keeps track of buy-sell events
+    uint public numOwnershipStatuses = 0;
 
     // Reports
     event LogNewOracleProxy(address oracleProxy);
     event LogCharityTransfer(address charityAddress, uint amount);
-    event LogNewFees(uint newImagePlacementFeeCents);
-
 
 // ** INITIALIZE ** //
     
@@ -65,34 +54,18 @@ contract Market is MehModule, DSMath {
         adminSetOracle(_oracleProxyAddress);
     }
 
-
-
-// ** BUY AND SELL BLOCKS ** //
-
-    // doubles price every 1000 blocks sold
-    function crowdsalePriceUSD(uint16 _blocksSold) internal pure returns (uint16) {
-        return uint16(2 ** (_blocksSold / 1000));  // check overflow?
-    }
-
-    function crowdsalePriceWei() internal view returns (uint) {
-        uint16 blocksSold = uint16(meh.totalSupply());
-        uint256 oneCentInWei = usd.oneCentInWei();
-        require(oneCentInWei > 0);
-        return mul(mul(oneCentInWei, crowdsalePriceUSD(blocksSold)), 100);
-    }
-
-    function blockSellPrice(uint16 _blockId) internal view returns (uint) {
-        return blockIdToPrice[_blockId];
-    }
+// ** BUY BLOCKS ** //
 
     function buyBlocks(address buyer, uint16[] _blockList) 
         external
         onlyMeh
-        whenNotPaused 
+        whenNotPaused
+        returns (uint numOwnershipStatuses)
     {   
         for (uint i = 0; i < _blockList.length; i++) {
             _buyBlock(buyer, _blockList[i]);
         }
+        numOwnershipStatuses++;
     }
 
     function _buyBlock(address _buyer, uint16 _blockId) internal {
@@ -107,30 +80,46 @@ contract Market is MehModule, DSMath {
             transferFrom(blockOwner, _buyer, _blockId);
             setSellPrice(_blockId, 0);
             depositTo(blockOwner, blockPrice);   //  pay seller
-            return;                            //  report zero blocks bought at crowdsale
+            return;
         } else { 
             // buy at crowdsale:
             blockPrice = crowdsalePriceWei();
             deductFrom(_buyer, blockPrice);
             mintCrowdsaleBlock(_buyer, _blockId);
             depositToAdminAndCharity(blockPrice);//  pay contract owner and charity
-            return;                              //  report one block bought at crowdsale
+            return;
         }
     }
 
-    function isOnSale(uint16 _blockId) public view returns (bool) {
-        return (blockIdToPrice[_blockId] > 0);
+    function blockSellPrice(uint16 _blockId) internal view returns (uint) {
+        return blockIdToPrice[_blockId];
     }
+
+    function crowdsalePriceWei() internal view returns (uint) {
+        uint16 blocksSold = uint16(meh.totalSupply());
+        uint256 oneCentInWei = usd.oneCentInWei();
+        require(oneCentInWei > 0);
+        return mul(mul(oneCentInWei, crowdsalePriceUSD(blocksSold)), 100);
+    }
+
+    // doubles price every 1000 blocks sold
+    function crowdsalePriceUSD(uint16 _blocksSold) internal pure returns (uint16) {
+        return uint16(2 ** (_blocksSold / 1000));  // check overflow?
+    }
+
+// ** SELL BLOCKS ** //
 
     function sellBlocks(address seller, uint priceForEachBlockWei, uint16[] _blockList) 
         external
         onlyMeh
-        whenNotPaused 
+        whenNotPaused
+        returns (uint numOwnershipStatuses)
     {   
         for (uint i = 0; i < _blockList.length; i++) {
             require(seller == ownerOf(_blockList[i]));
             _sellBlock(_blockList[i], priceForEachBlockWei);
         }
+        numOwnershipStatuses++;
     }
 
     /// @dev Trnsfer blockId to market, set or update price tag. Return block to seller.
@@ -141,18 +130,6 @@ contract Market is MehModule, DSMath {
 
     function setSellPrice(uint16 _blockId, uint256 _sellPriceWei) internal {
         blockIdToPrice[_blockId] = _sellPriceWei;
-    }
-
-    function areaPrice(uint16[] memory _blockList) // todo maybe external?
-        public 
-        view 
-        returns (uint totalPrice) 
-    {   
-        totalPrice = 0;
-        // TODO need to check ownership here? 
-        for (uint i = 0; i < _blockList.length; i++) {
-            totalPrice += getBlockPrice(_blockList[i]);
-        }
     }
 
 // ** ADMIN ** //
@@ -183,7 +160,19 @@ contract Market is MehModule, DSMath {
         mintCrowdsaleBlock(oldLandlord, blockId);
     }
 
-// INFO
+// ** INFO ** //
+
+    function areaPrice(uint16[] memory _blockList) // todo maybe external?
+        public 
+        view 
+        returns (uint totalPrice) 
+    {   
+        totalPrice = 0;
+        // TODO need to check ownership here? 
+        for (uint i = 0; i < _blockList.length; i++) {
+            totalPrice += getBlockPrice(_blockList[i]);
+        }
+    }
 
     function getBlockPrice(uint16 _blockId) view returns (uint) {
         uint blockPrice = 0;
@@ -197,7 +186,10 @@ contract Market is MehModule, DSMath {
         return blockPrice;
     }
 
-
+    /// @notice Nobody can transfer ERC721 tokens when they are on sale.
+    function isOnSale(uint16 _blockId) public view returns (bool) {  // todo remove??
+        return (blockIdToPrice[_blockId] > 0);
+    }
     
 // ** PAYMENT PROCESSING ** //
 

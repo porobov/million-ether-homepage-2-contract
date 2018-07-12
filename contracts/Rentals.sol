@@ -10,6 +10,7 @@ contract Rentals is MehModule {
     /// @notice Nobidy can cancel rent untill rent period is over
     uint public rentPeriod = 1 days;  // and thus min rent period
     uint public maxRentPeriod = 90;  // can be changed in settings 
+    uint public numRentStatuses = 0;
 
     // Rent deals. Any block can have one rent deal.
     struct RentDeal {          
@@ -31,11 +32,13 @@ contract Rentals is MehModule {
         external
         onlyMeh
         whenNotPaused
+        returns (uint numRentStatuses)
     {   
         for (uint i = 0; i < _blockList.length; i++) {
             require(landlord == ownerOf(_blockList[i]));
             rentOutBlock(_blockList[i], _rentPricePerPeriodWei);
         }
+        numRentStatuses++;
     }
 
     // Mark block for rent (set a rent price per period).
@@ -52,11 +55,13 @@ contract Rentals is MehModule {
         external
         onlyMeh
         whenNotPaused
+        returns (uint numRentStatuses)
     {   
         for (uint i = 0; i < _blockList.length; i++) {
             require(renter != ownerOf(_blockList[i]));
             rentBlock(renter, _blockList[i], _numberOfPeriods);   // TODO RentFrom
         }
+        numRentStatuses++;
     }
 
     // what if tries to rent own area
