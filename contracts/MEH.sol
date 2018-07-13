@@ -57,7 +57,7 @@ contract MEH is MehERC721, Accounting {
     {   
         require(isLegalCoordinates(fX, fY, toX, toY));
         require(canPay(areaPrice(fX, fY, toX, toY)));
-        _depositTo(msg.sender, msg.value);
+        depositFunds();
         uint id = market.buyBlocks(msg.sender, blocksList(fX, fY, toX, toY));
         emit LogBuys(id, fX, fY, toX, toY, msg.sender);
     }
@@ -103,7 +103,7 @@ contract MEH is MehERC721, Accounting {
     {
         require(isLegalCoordinates(fX, fY, toX, toY));
         require(canPay(areaRentPrice(fX, fY, toX, toY, _numberOfPeriods)));
-        _depositTo(msg.sender, msg.value);
+        depositFunds();
         uint id = rentals.rentBlocks(msg.sender, _numberOfPeriods, blocksList(fX, fY, toX, toY));   // TODO RentFrom
         emit LogRents(id, fX, fY, toX, toY, _numberOfPeriods, 0);
     }
@@ -157,6 +157,8 @@ contract MEH is MehERC721, Accounting {
     function getBlockOwner(uint8 x, uint8 y) external view returns (address) {
         return ownerOf(blockID(x, y));
     }
+
+    // todo getBalanceOf
 
 // ** UTILS ** //
 

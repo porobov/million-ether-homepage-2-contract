@@ -276,6 +276,7 @@ if (BASIC) {
         contract_bal_eth: -before.user_1_bal,
         user_2_bal: 0, admin_bal: 0, charity_bal: 0, contract_bal: 0, blocks_sold: 0
     }
+    checkStateChange(before, after, deltas);
     const buyer_eth_bal_after = await web3.eth.getBalance(buyer);
 
     assert.equal(buyer_eth_bal_after.minus(buyer_eth_bal_before).toNumber(), before.user_1_bal.minus(paid_for_gas).toNumber(),                       

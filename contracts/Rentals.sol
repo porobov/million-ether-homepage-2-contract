@@ -71,9 +71,8 @@ contract Rentals is MehModule {
         require(maxRentPeriod >= _numberOfPeriods);
         uint totalRent = rentPriceAndAvailability(_blockId) * _numberOfPeriods;
         address landlord = ownerOf(_blockId);
-        deductFrom(_renter, totalRent);
+        transferFunds(_renter, landlord, totalRent);
         createRentDeal(_blockId, _renter, now, _numberOfPeriods);
-        depositTo(landlord, totalRent);
     }
 
     function isForRent(uint16 _blockId) public view returns (bool) {
@@ -119,22 +118,10 @@ contract Rentals is MehModule {
         }
     }
 
-
 // ** ADMIN ** //
 
     function adminSetMaxRentPeriod(uint newMaxRentPeriod) external onlyOwner {
         require (newMaxRentPeriod > 0);
         maxRentPeriod = newMaxRentPeriod;
     }
-
-// ** PAYMENT PROCESSING ** //
-
-    // // TODO create library (same for Market) - into MehModule maybe
-    // function depositTo(address _recipient, uint _amount) internal {
-    //     return meh.operatorDepositTo(_recipient, _amount);
-    // }
-
-    // function deductFrom(address _payer, uint _amount) internal {
-    //     return meh.operatorDeductFrom(_payer, _amount);
-    // }
 }

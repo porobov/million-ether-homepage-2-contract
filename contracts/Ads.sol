@@ -32,7 +32,7 @@ contract Ads is MehModule {
         numImages++;
         return numImages;
     }
-
+    //       canAdvertiseOnBlocks TODO
     function canPaintBlocks(
         address advertiser, 
         uint16[] _blockList
@@ -46,7 +46,7 @@ contract Ads is MehModule {
         }
         return true;
     }
-
+    //       canAdvertiseOnBlock TODO
     function canPaintBlock(address _advertiser, uint16 blockId) 
         internal 
         view

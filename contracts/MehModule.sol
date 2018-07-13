@@ -25,12 +25,8 @@ contract MehModule is Ownable, Pausable, Destructible, HasNoEther {
         meh = candidateContract;
     }
 
-    function depositTo(address _recipient, uint _amount) internal {
-        return meh.operatorDepositTo(_recipient, _amount);
-    }
-
-    function deductFrom(address _payer, uint _amount) internal {
-        return meh.operatorDeductFrom(_payer, _amount);
+    function transferFunds(address _payer, address _recipient, uint _amount) internal {
+        return meh.operatorTransferFunds(_payer, _recipient, _amount);
     }
 
     function exists(uint16 _blockId) internal view  returns (bool) {
@@ -40,14 +36,4 @@ contract MehModule is Ownable, Pausable, Destructible, HasNoEther {
     function ownerOf(uint16 _blockId) internal view returns (address) {
         return meh.ownerOf(_blockId);
     }
-
-
-    // https://github.com/seedom-io/seedom-solidity/blob/574e52349755ec9e28111c3a182638e73d4eb635/contract/fundraiser.sol#L482
-    // recover() allows the owner to recover ERC20 tokens sent to this contract, for later
-    // distribution back to their original holders, upon request
-    // function recover(address _token) public onlyOwner {
-    //     ERC20 _erc20 = ERC20(_token);
-    //     uint256 _balance = _erc20.balanceOf(this);
-    //     require(_erc20.transfer(deployment._owner, _balance));
-    // }
 }

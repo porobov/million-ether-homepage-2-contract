@@ -76,17 +76,15 @@ contract Market is MehModule, DSMath {
             address blockOwner = ownerOf(_blockId);
             require(blockPrice > 0);
             require(_buyer != blockOwner);
-            deductFrom(_buyer, blockPrice);
-            transferFrom(blockOwner, _buyer, _blockId);
+            transferFunds(_buyer, blockOwner, blockPrice);
+            transferNFT(blockOwner, _buyer, _blockId);
             setSellPrice(_blockId, 0);
-            depositTo(blockOwner, blockPrice);   //  pay seller
             return;
         } else { 
             // buy at crowdsale:
             blockPrice = crowdsalePriceWei();
-            deductFrom(_buyer, blockPrice);
+            transferFundsToAdminAndCharity(_buyer, blockPrice);  // pay contract owner and charity
             mintCrowdsaleBlock(_buyer, _blockId);
-            depositToAdminAndCharity(blockPrice);//  pay contract owner and charity
             return;
         }
     }
@@ -137,8 +135,7 @@ contract Market is MehModule, DSMath {
     // transfer charity to an address (internally)
     function adminTransferCharity(address charityAddress, uint amount) external onlyOwner {
         require(charityAddress != owner);
-        deductFrom(charityVault, amount);
-        depositTo(charityAddress, amount);
+        transferFunds(charityVault, charityAddress, amount);
         charityPayed += amount;
         emit LogCharityTransfer(charityAddress, amount);
     }
@@ -166,7 +163,7 @@ contract Market is MehModule, DSMath {
         public 
         view 
         returns (uint totalPrice) 
-    {   
+    {
         totalPrice = 0;
         // TODO need to check ownership here? 
         for (uint i = 0; i < _blockList.length; i++) {
@@ -196,11 +193,11 @@ contract Market is MehModule, DSMath {
     /// @dev Reward admin and charity
     /// @notice Just for admin convinience. 
     ///  Admin is allowed to transfer charity to any account. 
-    ///  Function helps to separate personal funds from charity.
-    function depositToAdminAndCharity(uint _amount) internal {
+    ///  Separates personal funds from charity.
+    function transferFundsToAdminAndCharity(address _payer, uint _amount) internal {
         uint goesToCharity = _amount * 80 / 100;  // 80% goes to charity
-        depositTo(charityVault, goesToCharity);
-        depositTo(owner, _amount - goesToCharity);
+        transferFunds(_payer, charityVault, goesToCharity);
+        transferFunds(_payer, owner, _amount - goesToCharity);
     }
 
 // ** ERC721 ** //
@@ -209,7 +206,7 @@ contract Market is MehModule, DSMath {
         meh._mintCrowdsaleBlock(_to, _blockId);
     }
 
-    function transferFrom(address _from, address _to, uint16 _blockId) internal {
+    function transferNFT(address _from, address _to, uint16 _blockId) internal {
         meh.transferFrom(_from, _to, _blockId);  // safeTransfer has external call
         return;
     }
