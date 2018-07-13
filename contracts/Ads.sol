@@ -11,7 +11,7 @@ contract Ads is MehModule {
    
 // ** INITIALIZE ** //
 
-    constructor(address _mehAddress) MehModule(_mehAddress) {}
+    constructor(address _mehAddress) MehModule(_mehAddress) public {}
 
 // ** PLACE IMAGES ** //
 

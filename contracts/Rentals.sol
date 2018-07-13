@@ -6,11 +6,10 @@ contract Rentals is MehModule {
     
     bool public isRentals = true;
 
-    // deafauls
+    // deafaults
     /// @notice Nobidy can cancel rent untill rent period is over
     uint public rentPeriod = 1 days;  // and thus min rent period
     uint public maxRentPeriod = 90;  // can be changed in settings 
-    uint public numRentStatuses = 0;
 
     // Rent deals. Any block can have one rent deal.
     struct RentDeal {          
@@ -23,7 +22,10 @@ contract Rentals is MehModule {
     // Rent is allowed if price is set (price Per Period)
     mapping(uint16 => uint) public blockIdToRentPrice;
 
-    constructor(address _mehAddress) MehModule(_mehAddress) {  // TODO move to MehModule
+    // Counts rent statuses changes.
+    uint public numRentStatuses = 0;
+
+    constructor(address _mehAddress) MehModule(_mehAddress) public {  // TODO move to MehModule
     }
 
 // ** RENT AOUT BLOCKS ** //
@@ -32,13 +34,15 @@ contract Rentals is MehModule {
         external
         onlyMeh
         whenNotPaused
-        returns (uint numRentStatuses)
+        returns (uint)
     {   
+        // TODO check everywhere. sell price can be any - might overflow
         for (uint i = 0; i < _blockList.length; i++) {
             require(landlord == ownerOf(_blockList[i]));
             rentOutBlock(_blockList[i], _rentPricePerPeriodWei);
         }
         numRentStatuses++;
+        return numRentStatuses;
     }
 
     // Mark block for rent (set a rent price per period).
@@ -55,13 +59,14 @@ contract Rentals is MehModule {
         external
         onlyMeh
         whenNotPaused
-        returns (uint numRentStatuses)
+        returns (uint)
     {   
         for (uint i = 0; i < _blockList.length; i++) {
             require(renter != ownerOf(_blockList[i]));
-            rentBlock(renter, _blockList[i], _numberOfPeriods);   // TODO RentFrom
+            rentBlock(renter, _blockList[i], _numberOfPeriods);
         }
         numRentStatuses++;
+        return numRentStatuses;
     }
 
     // what if tries to rent own area
@@ -69,7 +74,7 @@ contract Rentals is MehModule {
         internal
     {   
         require(maxRentPeriod >= _numberOfPeriods);
-        uint totalRent = rentPriceAndAvailability(_blockId) * _numberOfPeriods;
+        uint totalRent = getRentPrice(_blockId).mul(_numberOfPeriods);  // overflow safe
         address landlord = ownerOf(_blockId);
         transferFunds(_renter, landlord, totalRent);
         createRentDeal(_blockId, _renter, now, _numberOfPeriods);
@@ -81,11 +86,12 @@ contract Rentals is MehModule {
 
     function isRented(uint16 _blockId) public view returns (bool) {
         RentDeal memory deal = blockIdToRentDeal[_blockId];
-        uint rentedTill = deal.rentedFrom + deal.numberOfPeriods * rentPeriod;
+        // prevents overflow if unlimited num of periods is set
+        uint rentedTill =  deal.numberOfPeriods.mul(rentPeriod).add(deal.rentedFrom);  
         return (rentedTill > now);
     }
 
-    function rentPriceAndAvailability(uint16 _blockId) internal view returns (uint) {
+    function getRentPrice(uint16 _blockId) internal view returns (uint) {
         require(isForRent(_blockId));
         require(!(isRented(_blockId)));
         return blockIdToRentPrice[_blockId];
@@ -107,15 +113,14 @@ contract Rentals is MehModule {
     function blocksRentPrice(uint _numberOfPeriods, uint16[] _blockList) 
         external
         view
-        onlyMeh  // TODO is it necessary?
-        whenNotPaused  // TODO is it necessary?
-        returns (uint totalPrice)
+        returns (uint)
     {   
-        totalPrice = 0;
+        uint totalPrice = 0;
         for (uint i = 0; i < _blockList.length; i++) {
-            // TODO need to check ownership here?
-            totalPrice += rentPriceAndAvailability(_blockList[i]) * _numberOfPeriods;
+            // overflow safe (rentPrice is arbitary)
+            totalPrice = getRentPrice(_blockList[i]).mul(_numberOfPeriods).add(totalPrice);
         }
+        return totalPrice;
     }
 
 // ** ADMIN ** //

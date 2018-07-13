@@ -1,13 +1,14 @@
 pragma solidity ^0.4.24;
 
-import "../installed_contracts/math.sol";
+// import "../installed_contracts/math.sol";
 import "./MEHAccessControl.sol";
-// import "openzeppelin-solidity/contracts/math/SafeMath.sol";
+import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 
-contract Accounting is DSMath, MEHAccessControl {
+contract Accounting is MEHAccessControl {
+    using SafeMath for uint256;
 
     // Accounting
-    mapping(address => uint) public balances;
+    mapping(address => uint256) public balances;
 
 // ** PAYMENT PROCESSING ** //
 
@@ -43,11 +44,11 @@ contract Accounting is DSMath, MEHAccessControl {
     }
 
     function _depositTo(address _recipient, uint _amount) internal {
-        balances[_recipient] = add(balances[_recipient], _amount);
+        balances[_recipient] = balances[_recipient].add(_amount);
     }
 
     function _deductFrom(address _payer, uint _amount) internal {
-        balances[_payer] = sub(balances[_payer], _amount);
+        balances[_payer] = balances[_payer].sub(_amount);
     }
 
 // ** ADMIN ** //
@@ -57,14 +58,14 @@ contract Accounting is DSMath, MEHAccessControl {
     /// @notice To be called in emergency. As the contract is not designed to keep users funds
     ///  (users can withdraw at anytime) it should be relatively easy to manualy 
     ///  transfer unclaimed funds to their owners. This is an alternatinve to selfdestruct
-    ///  to make blocks ledger immutable.
+    ///  allowing blocks ledger(ERC721 tokens) to be immutable.
     function adminRescueFunds() external onlyOwner whenPaused {
         address payee = owner;
         uint256 payment = address(this).balance;
-        assert(payee.send(payment));
+        payee.transfer(payment);
     }
 
     function canPay(uint needed) internal view returns (bool) {
-        return (msg.value + balances[msg.sender] >= needed);  // TODO safe math
+        return (msg.value.add(balances[msg.sender]) >= needed);
     }
 }

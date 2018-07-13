@@ -18,12 +18,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 pragma solidity ^0.4.18;
 
 import "./MehModule.sol";
-import "../installed_contracts/math.sol";
+// import "../installed_contracts/math.sol";
 import "../test/mockups/OracleProxy.sol";
 import "../test/mockups/OldeMillionEther.sol";
 
-contract Market is MehModule, DSMath {
-    
+contract Market is MehModule {
+
     // Contracts
     bool public isMarket = true;
     OldeMillionEther public oldMillionEther;
@@ -60,49 +60,57 @@ contract Market is MehModule, DSMath {
         external
         onlyMeh
         whenNotPaused
-        returns (uint numOwnershipStatuses)
+        returns (uint)
     {   
         for (uint i = 0; i < _blockList.length; i++) {
             _buyBlock(buyer, _blockList[i]);
         }
         numOwnershipStatuses++;
+        return numOwnershipStatuses;
     }
 
-    function _buyBlock(address _buyer, uint16 _blockId) internal {
-        uint blockPrice = 0;
+    function _buyBlock(address _buyer, uint16 _blockId) private {
         if (exists(_blockId)) {
-            // buy from current owner
-            blockPrice = blockSellPrice(_blockId);
-            address blockOwner = ownerOf(_blockId);
-            require(blockPrice > 0);
-            require(_buyer != blockOwner);
-            transferFunds(_buyer, blockOwner, blockPrice);
-            transferNFT(blockOwner, _buyer, _blockId);
-            setSellPrice(_blockId, 0);
-            return;
+            buyOwnedBlock(_buyer, _blockId);
         } else { 
-            // buy at crowdsale:
-            blockPrice = crowdsalePriceWei();
-            transferFundsToAdminAndCharity(_buyer, blockPrice);  // pay contract owner and charity
-            mintCrowdsaleBlock(_buyer, _blockId);
-            return;
+            buyCrowdsaleBlock(_buyer, _blockId);
         }
     }
 
-    function blockSellPrice(uint16 _blockId) internal view returns (uint) {
+    function buyOwnedBlock(address _buyer, uint16 _blockId) private {
+        uint blockPrice = blockSellPrice(_blockId);
+        address blockOwner = ownerOf(_blockId);
+        require(blockPrice > 0);
+        require(_buyer != blockOwner);
+        transferFunds(_buyer, blockOwner, blockPrice);
+        transferNFT(blockOwner, _buyer, _blockId);
+        setSellPrice(_blockId, 0);
+    }
+
+    function buyCrowdsaleBlock(address _buyer, uint16 _blockId) private {
+        uint blockPrice = crowdsalePriceWei();
+        transferFundsToAdminAndCharity(_buyer, blockPrice);
+        mintCrowdsaleBlock(_buyer, _blockId);
+    }
+
+    function blockSellPrice(uint16 _blockId) private view returns (uint) {
         return blockIdToPrice[_blockId];
     }
 
-    function crowdsalePriceWei() internal view returns (uint) {
-        uint16 blocksSold = uint16(meh.totalSupply());
+    function crowdsalePriceWei() private view returns (uint) {
+        uint256 blocksSold = meh.totalSupply();
         uint256 oneCentInWei = usd.oneCentInWei();
+
         require(oneCentInWei > 0);
-        return mul(mul(oneCentInWei, crowdsalePriceUSD(blocksSold)), 100);
+
+        return crowdsalePriceUSD(blocksSold).mul(oneCentInWei).mul(100);
     }
 
-    // doubles price every 1000 blocks sold
-    function crowdsalePriceUSD(uint16 _blocksSold) internal pure returns (uint16) {
-        return uint16(2 ** (_blocksSold / 1000));  // check overflow?
+    /// @dev Doubles price every 1000 blocks sold.
+    /// @notice Internal instead of private for testing purposes. 
+    function crowdsalePriceUSD(uint256 _blocksSold) internal pure returns (uint256) {
+        // can't overflow as _blocksSold == meh.totalSupply() and < 10000
+        return 2 ** (_blocksSold / 1000);
     }
 
 // ** SELL BLOCKS ** //
@@ -111,22 +119,23 @@ contract Market is MehModule, DSMath {
         external
         onlyMeh
         whenNotPaused
-        returns (uint numOwnershipStatuses)
+        returns (uint)
     {   
         for (uint i = 0; i < _blockList.length; i++) {
             require(seller == ownerOf(_blockList[i]));
             _sellBlock(_blockList[i], priceForEachBlockWei);
         }
         numOwnershipStatuses++;
+        return numOwnershipStatuses;
     }
 
     /// @dev Trnsfer blockId to market, set or update price tag. Return block to seller.
     /// @notice _sellPriceWei = 0 - cancel sale, return blockId to seller
-    function _sellBlock(uint16 _blockId, uint _sellPriceWei) internal {
+    function _sellBlock(uint16 _blockId, uint _sellPriceWei) private {
         setSellPrice(_blockId, _sellPriceWei);
     }
 
-    function setSellPrice(uint16 _blockId, uint256 _sellPriceWei) internal {
+    function setSellPrice(uint16 _blockId, uint256 _sellPriceWei) private {
         blockIdToPrice[_blockId] = _sellPriceWei;
     }
 
@@ -159,21 +168,25 @@ contract Market is MehModule, DSMath {
 
 // ** INFO ** //
 
-    function areaPrice(uint16[] memory _blockList) // todo maybe external?
-        public 
+    function areaPrice(uint16[] _blockList) // todo maybe external?
+        external 
         view 
         returns (uint totalPrice) 
     {
         totalPrice = 0;
-        // TODO need to check ownership here? 
         for (uint i = 0; i < _blockList.length; i++) {
-            totalPrice += getBlockPrice(_blockList[i]);
+            // As sell price value is arbitrary add is overflow-safe here
+            totalPrice = totalPrice.add(getBlockPrice(_blockList[i]));
         }
     }
 
-    function getBlockPrice(uint16 _blockId) view returns (uint) {
+    /// @notice e.g. permits ERC721 tokens transfer when they are on sale.
+    function isOnSale(uint16 _blockId) public view returns (bool) {
+        return (blockIdToPrice[_blockId] > 0);
+    }
+
+    function getBlockPrice(uint16 _blockId) private view returns (uint) {
         uint blockPrice = 0;
-        // TODO need to check ownership here? 
         if (exists(_blockId)) {
             blockPrice = blockSellPrice(_blockId);
             require(blockPrice > 0);
@@ -182,31 +195,26 @@ contract Market is MehModule, DSMath {
         }
         return blockPrice;
     }
-
-    /// @notice Nobody can transfer ERC721 tokens when they are on sale.
-    function isOnSale(uint16 _blockId) public view returns (bool) {  // todo remove??
-        return (blockIdToPrice[_blockId] > 0);
-    }
     
 // ** PAYMENT PROCESSING ** //
 
     /// @dev Reward admin and charity
-    /// @notice Just for admin convinience. 
+    /// @notice Just for admin convinience.
     ///  Admin is allowed to transfer charity to any account. 
     ///  Separates personal funds from charity.
-    function transferFundsToAdminAndCharity(address _payer, uint _amount) internal {
-        uint goesToCharity = _amount * 80 / 100;  // 80% goes to charity
+    function transferFundsToAdminAndCharity(address _payer, uint _amount) private {
+        uint goesToCharity = _amount * 80 / 100;  // 80% goes to charity  // check for oveflow too (in case of oracle mistake)
         transferFunds(_payer, charityVault, goesToCharity);
         transferFunds(_payer, owner, _amount - goesToCharity);
     }
 
 // ** ERC721 ** //
 
-    function mintCrowdsaleBlock(address _to, uint16 _blockId) internal {
+    function mintCrowdsaleBlock(address _to, uint16 _blockId) private {
         meh._mintCrowdsaleBlock(_to, _blockId);
     }
 
-    function transferNFT(address _from, address _to, uint16 _blockId) internal {
+    function transferNFT(address _from, address _to, uint16 _blockId) private {
         meh.transferFrom(_from, _to, _blockId);  // safeTransfer has external call
         return;
     }

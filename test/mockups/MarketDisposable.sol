@@ -12,7 +12,7 @@ contract MarketDisposable is Market {
         Market(_mehAddress, _oldMehAddress, _oracleProxyAddress) 
     {}
 
-    function usdPrice(uint16 blocksSold) public view returns (uint16) {
+    function usdPrice(uint256 blocksSold) public view returns (uint256) {
         return crowdsalePriceUSD(blocksSold);
     }
 }

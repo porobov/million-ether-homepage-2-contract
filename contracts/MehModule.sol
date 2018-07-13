@@ -1,12 +1,14 @@
 pragma solidity ^0.4.18;
 
 import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
+import "openzeppelin-solidity/contracts/lifecycle/Pausable.sol";
 import "openzeppelin-solidity/contracts/ownership/HasNoEther.sol";
 import "openzeppelin-solidity/contracts/lifecycle/Destructible.sol";
-import "openzeppelin-solidity/contracts/lifecycle/Pausable.sol";
+import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 import "./MEH.sol";
 
 contract MehModule is Ownable, Pausable, Destructible, HasNoEther {
+    using SafeMath for uint256;
 
     MEH  meh;
 

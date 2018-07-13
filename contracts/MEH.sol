@@ -162,13 +162,11 @@ contract MEH is MehERC721, Accounting {
 
 // ** UTILS ** //
 
-    // TODO check for overflow 
-    // TODO set modifier to guard >100, <0 etc.
     function blockID(uint8 _x, uint8 _y) public pure returns (uint16) {
         return (uint16(_y) - 1) * 100 + uint16(_x);
     }
 
-    function countBlocks(uint8 fX, uint8 fY, uint8 toX, uint8 toY) internal pure returns (uint){
+    function countBlocks(uint8 fX, uint8 fY, uint8 toX, uint8 toY) internal pure returns (uint16){
         return (toX - fX + 1) * (toY - fY + 1);
     }
 
@@ -188,6 +186,5 @@ contract MEH is MehERC721, Accounting {
         return ((_fX >= 1) && (_fY >=1)  && (_toX <= 100) && (_toY <= 100) 
             && (_fX <= _toX) && (_fY <= _toY));
         // TODO need to linit total number of blocs here?
-        // TODO what if a huge range of coordinates is selected
     }
 }
