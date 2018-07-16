@@ -41,7 +41,7 @@ contract Market is MehModule {
     uint public numOwnershipStatuses = 0;
 
     // Reports
-    event LogNewOracleProxy(address oracleProxy);
+    event LogModuleUpgrade(address newAddress, string moduleName);
     event LogCharityTransfer(address charityAddress, uint amount);
 
 // ** INITIALIZE ** //
@@ -72,7 +72,7 @@ contract Market is MehModule {
     function _buyBlock(address _buyer, uint16 _blockId) private {
         if (exists(_blockId)) {
             buyOwnedBlock(_buyer, _blockId);
-        } else { 
+        } else {
             buyCrowdsaleBlock(_buyer, _blockId);
         }
     }
@@ -82,6 +82,7 @@ contract Market is MehModule {
         address blockOwner = ownerOf(_blockId);
         require(blockPrice > 0);
         require(_buyer != blockOwner);
+
         transferFunds(_buyer, blockOwner, blockPrice);
         transferNFT(blockOwner, _buyer, _blockId);
         setSellPrice(_blockId, 0);
@@ -129,7 +130,7 @@ contract Market is MehModule {
         return numOwnershipStatuses;
     }
 
-    /// @dev Trnsfer blockId to market, set or update price tag. Return block to seller.
+    /// @dev Transfer blockId to market, set or update price tag. Return block to seller.
     /// @notice _sellPriceWei = 0 - cancel sale, return blockId to seller
     function _sellBlock(uint16 _blockId, uint _sellPriceWei) private {
         setSellPrice(_blockId, _sellPriceWei);
@@ -154,7 +155,7 @@ contract Market is MehModule {
         require(candidateContract.isOracleProxy());
         usd = candidateContract;
         // emit ContractUpgrade(_v2Address);
-        emit LogNewOracleProxy(_address);
+        emit LogModuleUpgrade(_address, "OracleProxy");
     }
 
     // import old contract blocks

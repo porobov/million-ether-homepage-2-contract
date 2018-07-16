@@ -10,6 +10,8 @@ contract Accounting is MEHAccessControl {
     // Accounting
     mapping(address => uint256) public balances;
 
+    event LogContractBalance(address payerOrPayee, int balanceChange);
+
 // ** PAYMENT PROCESSING ** //
 
     function withdraw() external whenNotPaused {
@@ -22,7 +24,7 @@ contract Accounting is MEHAccessControl {
         balances[payee] = 0;
 
         payee.transfer(payment);
-        // emit Withdrawn(_payee, payment);
+        emit LogContractBalance(payee, int256(-payment));
     }
 
     function operatorTransferFunds(
@@ -40,7 +42,7 @@ contract Accounting is MEHAccessControl {
 
     function depositFunds() internal whenNotPaused {
         _depositTo(msg.sender, msg.value);
-        // emit deposit
+        emit LogContractBalance(msg.sender, int256(+msg.value));
     }
 
     function _depositTo(address _recipient, uint _amount) internal {

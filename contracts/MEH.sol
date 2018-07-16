@@ -115,7 +115,7 @@ contract MEH is MehERC721, Accounting {
         returns (uint) 
     {
         require(isLegalCoordinates(fX, fY, toX, toY));
-        return rentals.blocksRentPrice(_numberOfPeriods, blocksList(fX, fY, toX, toY));
+        return rentals.blocksRentPrice  (_numberOfPeriods, blocksList(fX, fY, toX, toY));
     }
 
 // ** PLACE ADS ** //

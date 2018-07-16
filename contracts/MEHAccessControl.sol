@@ -35,7 +35,7 @@ contract MEHAccessControl is Pausable {
     RentalsInterface public rentals;
     AdsInterface public ads;
 
-    event LogContractUpgrade(address newAddress, string ContractName);
+    event LogModuleUpgrade(address newAddress, string moduleName);
     
 // GUARDS
 
@@ -57,17 +57,20 @@ contract MEHAccessControl is Pausable {
         MarketInerface candidateContract = MarketInerface(_address);
         require(candidateContract.isMarket());
         market = candidateContract;
+        emit LogModuleUpgrade(_address, "Market");
     }
 
     function adminSetRentals(address _address) external onlyOwner { //whenPaused {    // TODO 
         RentalsInterface candidateContract = RentalsInterface(_address);
         require(candidateContract.isRentals());
         rentals = candidateContract;
+        emit LogModuleUpgrade(_address, "Rentals");
     }
 
     function adminSetAds(address _address) external onlyOwner { //whenPaused {    // TODO
         AdsInterface candidateContract = AdsInterface(_address);
         require(candidateContract.isAds());
         ads = candidateContract;
+        emit LogModuleUpgrade(_address, "Ads");
     }
 }

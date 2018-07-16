@@ -62,7 +62,6 @@ contract Rentals is MehModule {
         returns (uint)
     {   
         for (uint i = 0; i < _blockList.length; i++) {
-            require(renter != ownerOf(_blockList[i]));
             rentBlock(renter, _blockList[i], _numberOfPeriods);
         }
         numRentStatuses++;
@@ -74,8 +73,10 @@ contract Rentals is MehModule {
         internal
     {   
         require(maxRentPeriod >= _numberOfPeriods);
-        uint totalRent = getRentPrice(_blockId).mul(_numberOfPeriods);  // overflow safe
         address landlord = ownerOf(_blockId);
+        require(_renter != landlord);
+        uint totalRent = getRentPrice(_blockId).mul(_numberOfPeriods);  // overflow safe
+        
         transferFunds(_renter, landlord, totalRent);
         createRentDeal(_blockId, _renter, now, _numberOfPeriods);
     }
