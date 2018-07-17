@@ -19,8 +19,8 @@ pragma solidity ^0.4.18;
 
 import "./MehModule.sol";
 // import "../installed_contracts/math.sol";
-import "../test/mockups/OracleProxy.sol";
-import "../test/mockups/OldeMillionEther.sol";
+import "./mockups/OracleProxy.sol";
+import "./mockups/OldeMillionEther.sol";
 
 contract Market is MehModule {
 

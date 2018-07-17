@@ -1,14 +1,15 @@
-var OldeMillionEther = artifacts.require("../test/mockups/OldeMillionEther.sol");
+var OldeMillionEther = artifacts.require("./mockups/OldeMillionEther.sol");
 var MillionEther = artifacts.require("./MEH.sol");
-var Market = artifacts.require("../test/mockups/MarketDisposable.sol");
+var Market = artifacts.require("./mockups/MarketDisposable.sol");
 var Ads = artifacts.require("./Ads.sol");
-var Rentals = artifacts.require("../test/mockups/RentalsDisposable.sol");
-var OracleProxy = artifacts.require("../test/mockups/OracleProxy.sol");
+var Rentals = artifacts.require("./mockups/RentalsDisposable.sol");
+var OracleProxy = artifacts.require("./mockups/OracleProxy.sol");
 
-var OracleProxyStub = artifacts.require("../test/mockups/OracleProxyStub.sol");
-var MarketStub = artifacts.require("../test/mockups/MarketStub.sol");
-var RentalsStub = artifacts.require("../test/mockups/RentalsStub.sol");
-var AdsStub = artifacts.require("../test/mockups/AdsStub.sol");
+// var OracleProxyStub = artifacts.require("../test/mockups/OracleProxyStub.sol");
+var OracleProxyStub = artifacts.require("./mockups/OracleProxyStub.sol");
+var MarketStub = artifacts.require("./mockups/MarketStub.sol");
+var RentalsStub = artifacts.require("./mockups/RentalsStub.sol");
+var AdsStub = artifacts.require("./mockups/AdsStub.sol");
 
 const BASIC = true;
 const ERC721 = true;

@@ -1,2 +1,3 @@
 node_modules/*
+ignored.js
 !node_modules/openzeppelin-solidity/

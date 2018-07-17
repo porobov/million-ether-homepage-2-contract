@@ -1,6 +1,6 @@
 pragma solidity ^0.4.24;    
 
-import "../../contracts/Rentals.sol";
+import "../Rentals.sol";
 
 contract RentalsDisposable is Rentals {
     constructor(address _mehAddress) Rentals(_mehAddress) {}

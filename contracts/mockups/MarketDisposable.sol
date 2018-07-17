@@ -1,6 +1,6 @@
 pragma solidity ^0.4.24;    
 
-import "../../contracts/Market.sol";
+import "../Market.sol";
 
 contract MarketDisposable is Market {
     
