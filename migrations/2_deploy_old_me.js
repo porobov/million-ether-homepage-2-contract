@@ -1,4 +1,4 @@
-var MEH = artifacts.require("./MEH.sol");
+var MEH = artifacts.require("./mockups/MEHDisposable.sol");
 var OldeMillionEther = artifacts.require("./mockups/OldeMillionEther.sol");
 var OracleProxy = artifacts.require("./mockups/OracleProxy.sol");
 

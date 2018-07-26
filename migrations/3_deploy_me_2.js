@@ -1,4 +1,4 @@
-var MEH = artifacts.require("./MEH.sol");
+var MEH = artifacts.require("./MEHDisposable.sol");
 var MarketDisposable = artifacts.require("./mockups/MarketDisposable.sol");
 var RentalsDisposable = artifacts.require("./mockups/RentalsDisposable.sol");
 var Ads = artifacts.require("./Ads.sol");
@@ -9,6 +9,7 @@ var OldeMillionEther = artifacts.require("./mockups/OldeMillionEther.sol");
 module.exports = function(deployer) {
   deployer.deploy(MarketDisposable, MEH.address, OldeMillionEther.address, OracleProxy.address).then(() => {
     MEH.deployed().then(meh => {
+        // console.log("MillionEther (migrations)", meh.address);
         return meh.adminSetMarket(MarketDisposable.address);
     });
     // OracleProxy.deployed().then(oracleProxy => {

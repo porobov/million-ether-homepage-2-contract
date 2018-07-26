@@ -61,6 +61,7 @@ contract Rentals is MehModule {
         whenNotPaused
         returns (uint)
     {   
+        require(_numberOfPeriods > 0);
         for (uint i = 0; i < _blockList.length; i++) {
             rentBlock(renter, _blockList[i], _numberOfPeriods);
         }

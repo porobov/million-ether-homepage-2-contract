@@ -17,7 +17,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 pragma solidity ^0.4.2;
 
-contract OldeMillionEther {
+import "openzeppelin-solidity/contracts/lifecycle/Destructible.sol";
+
+contract OldeMillionEther is Destructible {
 
     struct Block {
         address landlord;

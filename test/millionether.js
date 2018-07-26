@@ -1,11 +1,10 @@
 var OldeMillionEther = artifacts.require("./mockups/OldeMillionEther.sol");
-var MillionEther = artifacts.require("./MEH.sol");
+var MillionEther = artifacts.require("./mockups/MEHDisposable.sol"  );
 var Market = artifacts.require("./mockups/MarketDisposable.sol");
 var Ads = artifacts.require("./Ads.sol");
 var Rentals = artifacts.require("./mockups/RentalsDisposable.sol");
 var OracleProxy = artifacts.require("./mockups/OracleProxy.sol");
 
-// var OracleProxyStub = artifacts.require("../test/mockups/OracleProxyStub.sol");
 var OracleProxyStub = artifacts.require("./mockups/OracleProxyStub.sol");
 var MarketStub = artifacts.require("./mockups/MarketStub.sol");
 var RentalsStub = artifacts.require("./mockups/RentalsStub.sol");
@@ -18,18 +17,43 @@ const BUY_MIXED_BLOCKS = true;
 const RENT = true;
 const ADS = true;
 const ADMIN = true;
-const CHECK_PRICE_DOUBLING = false;
+const CHECK_PRICE_DOUBLING = true;
 
+var admin = "";
+var user_1 = "";
+var user_2 = "";
+var user_3 = "";
+var network_id;
 contract('MillionEther', function(accounts) {
+  web3.eth.getAccounts((error,result) => {
+    admin = result[0];  // 0x0230c6dd5db1d3f871386a3ce1a5a836b2590044
+    user_1 = result[1]; // 0x5adb20e1ea529f159b191b663b9240f29f903727
+    user_2 = result[2]; // 0xe66ec08db6d02312d4eccbfa505e68485c42fe86
+    user_3 = result[3]; // 0x0172195ab28740d83b279456c38c020420b2f03a
+  })
 
-  var admin = web3.eth.accounts[0];
-  var user_1 = web3.eth.accounts[1];
-  var user_2 = web3.eth.accounts[2];
-  var user_3 = web3.eth.accounts[3];
-  var charityAddress = '0x616c6C20796F75206e656564206973206C6f7665';
+  const charityAddress = '0x616c6C20796F75206e656564206973206C6f7665';
+  web3.eth.defaultAccount = admin;
+
+  web3.version.getNetwork((err, network) => {
+    network_id = network;
+    console.log("network_id: ", network_id)});
+  
   const gas_price = web3.toWei(100, 'Shannon');  // 100 Shannon - default gas price in Truffle. TODO prepare for Rinkeby
 
 // Helper functions
+
+  function getBalance(address) {
+    return new Promise (function(resolve, reject) {
+      web3.eth.getBalance(address, function(error, result) {
+        if (error) {
+            reject(error);
+        } else {
+            resolve(result);
+        }
+      })
+    })
+  }
 
   function getBlockId(x, y) {
     return (y - 1) * 100 + x;
@@ -41,31 +65,32 @@ contract('MillionEther', function(accounts) {
 
   // get most important state variables
   async function mehState(mehInstance) {
+    const adsInstance = await Ads.deployed();
     var state = {};
     state.user_1_bal = await mehInstance.balances.call(user_1);
     state.user_2_bal = await mehInstance.balances.call(user_2);
     state.admin_bal = await mehInstance.balances.call(admin);
     state.charity_bal = await mehInstance.balances.call(charityAddress);
     state.contract_bal = 0;  // TODO acounting balance
-    state.contract_bal_eth = await web3.eth.getBalance(mehInstance.address);
+    state.contract_bal_eth = await getBalance(mehInstance.address);
     state.blocks_sold = await mehInstance.totalSupply.call();
     return state;
   }
 
   // assert state variables changes
   function checkStateChange(before, after, deltas) {
-    assert.equal(after.blocks_sold - before.blocks_sold, deltas.blocks_sold,    
+    assert.equal(after.blocks_sold.minus(before.blocks_sold).toNumber(), deltas.blocks_sold,    
         "totalSupply delta was wrong");
-    assert.equal(after.user_1_bal - before.user_1_bal, deltas.user_1_bal, 
+    assert.equal(after.user_1_bal.minus(before.user_1_bal).toNumber(), deltas.user_1_bal, 
         "user_1 balance delta was wrong");
-    assert.equal(after.user_2_bal - before.user_2_bal, deltas.user_2_bal, 
+    assert.equal(after.user_2_bal.minus(before.user_2_bal).toNumber(), deltas.user_2_bal, 
         "user_2 balance delta was wrong");
-    assert.equal(after.admin_bal - before.admin_bal, deltas.admin_bal, 
+    assert.equal(after.admin_bal.minus(before.admin_bal).toNumber(), deltas.admin_bal, 
         "admin balance delta was wrong");
-    assert.equal(after.charity_bal - before.charity_bal, deltas.charity_bal,    
+    assert.equal(after.charity_bal.minus(before.charity_bal).toNumber(), deltas.charity_bal,    
         "charity balance delta was wrong");
     // state.contract_bal = 0; 
-    assert.equal(after.contract_bal_eth - before.contract_bal_eth, deltas.contract_bal_eth,    
+    assert.equal(after.contract_bal_eth.minus(before.contract_bal_eth).toNumber(), deltas.contract_bal_eth,    
         "contract ether balance delta was wrong");
   }
 
@@ -86,9 +111,26 @@ contract('MillionEther', function(accounts) {
         const tx = await foo;
     } catch (err) {
         error = err;
+
     }
-    // console.log(error.message);
-    assert.equal(error.message.substring(43,49), "revert", msg);
+    console.log(error.message);
+    if (network_id == 4 || network_id == 42) {        
+        //Rinkeby through infura: "Transaction: 0x3a2128319ad2216504878abd4b3358e967bfec68b8fb37eb951d986a857b6530 exited with an error (status 0)...."
+        assert.equal(error.message.substring(95,100), "error", msg);
+    } else {
+        //Truffle develop: "VM Exception while processing transaction: revert"
+        //Network id 4447
+        assert.equal(error.message.substring(43,49), "revert", msg);
+    }
+    
+  }
+
+  async function ignoreThrow(foo, msg) {
+    var error = {};
+    error.message = "";
+    try {
+        const tx = await foo;
+    } catch (err) {}
   }
 
   //credits https://github.com/OpenZeppelin/openzeppelin-solidity/blob/f4228f1b49d6d505d3311e5d962dfb0febdf61df/test/Bounty.test.js#L82-L109
@@ -101,7 +143,6 @@ contract('MillionEther', function(accounts) {
       });
   }
 
-  // console.log(web3.eth.getBlock(tx.receipt.blockNumber));
 
 
 
@@ -116,11 +157,14 @@ if (BASIC) {
 // buy 1 block (1, 1)
   it("should let buy block 1x1", async () => {
     const me2 = await MillionEther.deployed();
+    // console.log("MillionEther", me2.address); // address is ok
+    // console.log(me2.abi);  // abi seems ok
+    // const me2 = await MillionEther.at("0x143B9860E893C7F906481E4997896d3da58A6788");
     const buyer = user_1;
     const before = await mehState(me2);
 
     tx = await me2.buyArea(1, 1, 1, 1, {from: buyer, value: web3.toWei(1000, 'wei'), gas: 4712388});
-    logGas(tx, "buyArea (one block)");
+    // logGas(tx, "buyArea (one block)");
 
     const after = await mehState(me2);
     const deltas = {
@@ -173,55 +217,41 @@ if (BASIC) {
     const buyer = user_1;
 
     const owner = await me2.getBlockOwner.call(1, 1);
-    var error = "";
-    try {
-        const tx = await me2.buyArea(1, 1, 1, 1, {from: buyer, value: web3.toWei(1, 'ether'), gas: 4712388});
-    } catch (err) {
-        error = err
-    }
+
+    await assertThrows(me2.buyArea(1, 1, 1, 1, {from: buyer, value: web3.toWei(0.1, 'ether'), gas: 4712388}), 
+        "Allowed buying block not marked for sale!");
     assert.equal(await me2.getBlockOwner.call(1, 1), owner, "changed owner of block!");
-    assert.equal(error.message.substring(43,49), "revert", "allowed buying block not marked for sale!");
   })
 
   it("should permit buying block beyond 1000x1000 px field (requireLegalCoordinates)", async () => {
     const me2 = await MillionEther.deployed();
     const buyer = user_1;
-    var error = "";
-    try {
-        const tx = await me2.buyArea(100, 101, 100, 101, {from: buyer, value: web3.toWei(1, 'ether'), gas: 4712388});
-    } catch (err) {
-        error = err
-    }
+
+    await assertThrows(me2.buyArea(100, 101, 100, 101, {from: buyer, value: web3.toWei(0.1, 'ether'), gas: 4712388}), 
+        "Allowed buying block beyond 100x100 field!");
     assert.equal(await me2.exists.call(getBlockId(100, 101)), false, "minted a block outside 100x100 field!");
-    assert.equal(error.message.substring(43,49), "revert", "allowed buying block beyond 100x100 field!");
+    
   })
 
   it("should permit selling other landlord's block", async () => {
     const me2 = await MillionEther.deployed();
     const seller = user_1;
     const before = await mehState(me2);
-    var error = "";
-    try {
-        const tx = await me2.sellArea(1, 1, 1, 1, 100, {from: seller, gas: 4712388});
-    } catch (err) {
-        error = err
-    }
+
+    await assertThrows(me2.sellArea(1, 1, 1, 1, 100, {from: seller, gas: 4712388}), 
+        "Allowed selling other landlord's block!");
 
     const after = await mehState(me2);
     checkStateChange(before, after, no_changes);
-    assert.equal(error.message.substring(43,49), "revert", "allowed selling other landlord's block!");
+    
   })
 
   it("should permit selling crowdsale block", async () => {
     const me2 = await MillionEther.deployed();
     const buyer = user_1;
-    var error = "";
-    try {
-        const tx = await me2.sellArea(1, 2, 1, 2, 100, {from: buyer, gas: 4712388});
-    } catch (err) {
-        error = err
-    }
-    assert.equal(error.message.substring(43,49), "revert", "allowed selling crowdsale block!");
+
+    await assertThrows(me2.sellArea(1, 2, 1, 2, 100, {from: buyer, gas: 4712388}), 
+        "Allowed selling crowdsale block!");
   })
 
 
@@ -231,13 +261,9 @@ if (BASIC) {
     const buyer = user_1;
     var tx = await me2.buyArea(1, 2, 1, 2, {from: buyer, value: web3.toWei(1000, 'wei'), gas: 4712388});
     tx = await me2.sellArea(1, 2, 1, 2, 1000, {from: buyer, gas: 4712388});
-    var error = "";
-    try {
-        tx = await me2.buyArea(1, 2, 1, 2, {from: buyer, value: web3.toWei(1, 'ether'), gas: 4712388});
-    } catch (err) {
-        error = err
-    }
-    assert.equal(error.message.substring(43,49), "revert", "allowed buying own block!");
+
+    await assertThrows(me2.buyArea(1, 2, 1, 2, {from: buyer, value: web3.toWei(0.1, 'ether'), gas: 4712388}), 
+        "Allowed buying own block!");
   })
 
 //stop selling block(1, 2)
@@ -247,16 +273,12 @@ if (BASIC) {
     const buyer = user_2;
     var tx = await me2.sellArea(1, 2, 1, 2, 0, {from: seller, gas: 4712388});
 
-    var error = "";
-    try {
-        tx = await me2.buyArea(1, 2, 1, 2, {from: buyer, value: web3.toWei(1, 'ether'), gas: 4712388});
-    } catch (err) {
-        error = err
-    }
-    assert.equal(error.message.substring(43,49), "revert", "allowed buying own block!");
+    await assertThrows(me2.buyArea(1, 2, 1, 2, {from: buyer, value: web3.toWei(0.1, 'ether'), gas: 4712388}), 
+        "Allowed buying block which is not on sale already!");
+
     const first_block_owner = await me2.getBlockOwner.call(1, 2);
     assert.equal(first_block_owner, seller,                       
-        "first block owner wasn't set correctly");
+        "First block owner wasn't set correctly");
     })
 
 // withdraw(1, 3)
@@ -264,10 +286,10 @@ if (BASIC) {
     const me2 = await MillionEther.deployed();
     const buyer = user_1;
     // put excessive ammount
-    var tx = await me2.buyArea(1, 3, 1, 3, {from: buyer, value: web3.toWei(10, 'ether'), gas: 4712388});
+    var tx = await me2.buyArea(1, 3, 1, 3, {from: buyer, value: web3.toWei(0.1, 'ether'), gas: 4712388});
 
     const before = await mehState(me2);
-    const buyer_eth_bal_before = await web3.eth.getBalance(buyer);
+    const buyer_eth_bal_before = await getBalance(buyer);
 
     tx = await me2.withdraw({from: buyer, gas: 4712388}); 
     paid_for_gas = web3.toWei(tx.receipt.gasUsed * gas_price, "wei");
@@ -278,7 +300,7 @@ if (BASIC) {
         user_2_bal: 0, admin_bal: 0, charity_bal: 0, contract_bal: 0, blocks_sold: 0
     }
     checkStateChange(before, after, deltas);
-    const buyer_eth_bal_after = await web3.eth.getBalance(buyer);
+    const buyer_eth_bal_after = await getBalance(buyer);
 
     assert.equal(buyer_eth_bal_after.minus(buyer_eth_bal_before).toNumber(), before.user_1_bal.minus(paid_for_gas).toNumber(),                       
         "buyer didn't recieve all funds");
@@ -308,15 +330,11 @@ if (ERC721) {
 
     before = await mehState(me2);
     tx = await me2.sellArea(10, 1, 10, 1, 5, {from: new_landlord, gas: 4712388});
-        var error = "";
-    try {
-        tx = await me2.safeTransferFrom(new_landlord, buyer, getBlockId(10, 1), {from: new_landlord, gas: 4712388});
-    } catch (err) {
-        error = err
-    }
+
+    await assertThrows(me2.safeTransferFrom(new_landlord, buyer, getBlockId(10, 1), {from: new_landlord, gas: 4712388}), 
+        "Allowed transfering block(ERC721 token) marked for sale!");
     after = await mehState(me2);
     checkStateChange(before, after, no_changes);
-    assert.equal(error.message.substring(43,49), "revert", "allowed buying own block!");
     assert.equal(await me2.getBlockOwner.call(10, 1), new_landlord,                       
         "the block owner wasn't set");  
   })
@@ -338,15 +356,11 @@ if (ERC721) {
     before = await mehState(me2);
     tx = await me2.sellArea(11, 1, 11, 1, 5, {from: new_landlord, gas: 4712388});
     tx = await me2.approve(third_party, getBlockId(11, 1), {from: new_landlord, gas: 4712388});
-        var error = "";
-    try {
-        tx = await me2.safeTransferFrom(new_landlord, buyer, getBlockId(11, 1), {from: third_party, gas: 4712388});
-    } catch (err) {
-        error = err
-    }
+
+    await assertThrows(me2.safeTransferFrom(new_landlord, buyer, getBlockId(11, 1), {from: third_party, gas: 4712388}), 
+        "allowed approved transfering block(ERC721 token) marked for sale!");
     after = await mehState(me2);
     checkStateChange(before, after, no_changes);
-    assert.equal(error.message.substring(43,49), "revert", "allowed buying own block!");
     assert.equal(await me2.getBlockOwner.call(11, 1), new_landlord,                       
         "the block owner wasn't set");  
   })
@@ -368,15 +382,11 @@ if (ERC721) {
     before = await mehState(me2);
     tx = await me2.sellArea(12, 1, 12, 1, 5, {from: new_landlord, gas: 4712388});
     tx = await me2.setApprovalForAll(third_party, true, {from: new_landlord, gas: 4712388});
-        var error = "";
-    try {
-        tx = await me2.safeTransferFrom(new_landlord, buyer, getBlockId(12, 1), {from: third_party, gas: 4712388});
-    } catch (err) {
-        error = err
-    }
+
+    await assertThrows(me2.safeTransferFrom(new_landlord, buyer, getBlockId(12, 1), {from: third_party, gas: 4712388}), 
+        "allowed approvedForAll transfering block(ERC721 token) marked for sale!");
     after = await mehState(me2);
     checkStateChange(before, after, no_changes);
-    assert.equal(error.message.substring(43,49), "revert", "allowed buying own block!");
     assert.equal(await me2.getBlockOwner.call(12, 1), new_landlord,                       
         "the block owner wasn't set");  
   })
@@ -532,25 +542,25 @@ async function checkRentState(blockID, expected) {
     const landlord = user_1;
     const some_guy = user_2;
     const renter = user_3;
-    assertThrows(me2.rentOutArea(72, 1, 72, 1, 200, {from: some_guy, gas: 4712388}), 
+    await assertThrows(me2.rentOutArea(72, 1, 72, 1, 200, {from: some_guy, gas: 4712388}), 
         "Rented out crowdsale block!");
-    assertThrows(me2.rentArea(72, 1, 72, 1, 1, {from: some_guy, value: web3.toWei(1, 'ether'), gas: 4712388}), 
+    await assertThrows(me2.rentArea(72, 1, 72, 1, 1, {from: some_guy, value: web3.toWei(0.1, 'ether'), gas: 4712388}), 
         "Rented crowdsale block!");
 
     var tx = await me2.buyArea(72, 1, 72, 1, {from: landlord, value: web3.toWei(1000, 'wei'), gas: 4712388});
-    assertThrows(me2.rentOutArea(72, 1, 72, 1, 200, {from: some_guy, gas: 4712388}), 
+    await assertThrows(me2.rentOutArea(72, 1, 72, 1, 200, {from: some_guy, gas: 4712388}), 
         "Rented out other landlords blocks!");
-    assertThrows(me2.rentArea(72, 1, 72, 1, 1, {from: some_guy, value: web3.toWei(1, 'ether'), gas: 4712388}), 
+    await assertThrows(me2.rentArea(72, 1, 72, 1, 1, {from: some_guy, value: web3.toWei(0.1, 'ether'), gas: 4712388}), 
         "Rented block which is not for rent yet!");
 
     tx = await me2.rentOutArea(72, 1, 72, 1, 200, {from: landlord, gas: 4712388});
-    assertThrows(me2.rentArea(72, 1, 72, 1, 1, {from: landlord, value: web3.toWei(1, 'ether'), gas: 4712388}), 
+    await assertThrows(me2.rentArea(72, 1, 72, 1, 1, {from: landlord, value: web3.toWei(0.1, 'ether'), gas: 4712388}), 
         "Rented own block!");
     await assertThrows(me2.rentArea(72, 1, 72, 1, MAX_RENT_PERIODS + 1, {from: renter, value: web3.toWei(1, 'ether'), gas: 4712388}), 
         "Rented for more than max rent periods!");
 
     tx = await me2.rentArea(72, 1, 72, 1, 1, {from: renter, value: web3.toWei(1600, 'wei'), gas: 4712388});
-    assertThrows(me2.rentArea(72, 1, 72, 1, 1, {from: some_guy, value: web3.toWei(1, 'ether'), gas: 4712388}), 
+    await assertThrows(me2.rentArea(72, 1, 72, 1, 1, {from: some_guy, value: web3.toWei(0.1, 'ether'), gas: 4712388}), 
         "Rented block which is already rented!");
   })
 
@@ -566,7 +576,7 @@ async function checkRentState(blockID, expected) {
     var tx = await me2.buyArea(73, 1, 73, 1, {from: landlord, value: web3.toWei(1000, 'wei'), gas: 4712388});
     tx = await me2.rentOutArea(73, 1, 73, 1, 200, {from: landlord, gas: 4712388});
     tx = await me2.rentOutArea(73, 1, 73, 1, 0, {from: landlord, gas: 4712388});
-    assertThrows(me2.rentArea(73, 1, 73, 1, 1, {from: some_guy, value: web3.toWei(1, 'ether'), gas: 4712388}), 
+    await assertThrows(me2.rentArea(73, 1, 73, 1, 1, {from: some_guy, value: web3.toWei(0.1, 'ether'), gas: 4712388}), 
         "Rented block which is not for rent already!");
 
     tx = await me2.rentOutArea(73, 1, 73, 1, 200, {from: landlord, gas: 4712388});
@@ -580,7 +590,7 @@ async function checkRentState(blockID, expected) {
     }
     checkRentState(getBlockId(73, 1), expected_rent_params);
     tx = await rentMock.fastforwardRent(getBlockId(73, 1), {from: landlord, gas: 4712388});
-    assertThrows(me2.rentArea(73, 1, 73, 1, 1, {from: some_guy, value: web3.toWei(1, 'ether'), gas: 4712388}), 
+    await assertThrows(me2.rentArea(73, 1, 73, 1, 1, {from: some_guy, value: web3.toWei(0.1, 'ether'), gas: 4712388}), 
         "Rented block which is not for rent already!");
   })
 
@@ -597,10 +607,10 @@ async function checkRentState(blockID, expected) {
 
     tx = await me2.rentOutArea(74, 1, 74, 2, 200, {from: landlord, gas: 4712388});
     tx = await me2.rentArea(74, 1, 74, 2, 2, {from: renter, value: web3.toWei(800, 'wei'), gas: 4712388})
-    assertThrows(me2.rentArea(74, 1, 74, 2, 1, {from: some_guy, value: web3.toWei(1, 'ether'), gas: 4712388}), 
+    await assertThrows(me2.rentArea(74, 1, 74, 2, 1, {from: some_guy, value: web3.toWei(0.1, 'ether'), gas: 4712388}), 
         "Rented block which is rented already!");
     tx = await rentMock.fastforwardRent(getBlockId(74, 1), {from: landlord, gas: 4712388});
-    assertThrows(me2.rentArea(74, 1, 74, 2, 1, {from: some_guy, value: web3.toWei(1, 'ether'), gas: 4712388}), 
+    await assertThrows(me2.rentArea(74, 1, 74, 2, 1, {from: some_guy, value: web3.toWei(0.1, 'ether'), gas: 4712388}), 
         "Rented block which is rented already!");
     tx = await rentMock.fastforwardRent(getBlockId(74, 2), {from: landlord, gas: 4712388});
     tx = await me2.rentArea(74, 1, 74, 2, 2, {from: some_guy, value: web3.toWei(800, 'wei'), gas: 4712388});
@@ -626,12 +636,12 @@ async function checkRentState(blockID, expected) {
     
     tx = await me2.rentOutArea(75, 1, 75, 2, 200, {from: landlord, gas: 4712388});
     tx = await me2.rentArea(75, 1, 75, 2, 2, {from: renter, value: web3.toWei(800, 'wei'), gas: 4712388})
-    assertThrows(me2.placeAds(75, 1, 75, 2, "imageSourceUrl", "adUrl", "adText",  {from: landlord, gas: 4712388}),
+    await assertThrows(me2.placeAds(75, 1, 75, 2, "imageSourceUrl", "adUrl", "adText",  {from: landlord, gas: 4712388}),
         "Landlord was able to place image when rent is not expired!");
     tx = await me2.placeAds(75, 1, 75, 2, "imageSourceUrl", "adUrl", "adText",  {from: renter, gas: 4712388});
     tx = await rentMock.fastforwardRent(getBlockId(75, 1), {from: landlord, gas: 4712388});
     tx = await rentMock.fastforwardRent(getBlockId(75, 2), {from: landlord, gas: 4712388});
-    assertThrows(me2.placeAds(75, 1, 75, 2, "imageSourceUrl", "adUrl", "adText",  {from: renter, gas: 4712388}),
+    await assertThrows(me2.placeAds(75, 1, 75, 2, "imageSourceUrl", "adUrl", "adText",  {from: renter, gas: 4712388}),
         "Landlord was able to place image when rent is not expired!");
     tx = await me2.placeAds(75, 1, 75, 2, "imageSourceUrl", "adUrl", "adText",  {from: landlord, gas: 4712388});
   })
@@ -640,10 +650,22 @@ async function checkRentState(blockID, expected) {
 
 
 
-
-
-
-
+async function numImages(adsInstance) {
+    return (await adsInstance.numImages.call()).toNumber();
+}
+async function waitForEvent(event, optTimeout) {
+  return new Promise((resolve, reject) => {
+    let timeout = setTimeout(() => {
+      clearTimeout(timeout)
+      return reject(new Error('Timeout waiting for event'))
+    }, optTimeout || 60000)
+    event.watch((e, res) => {
+      clearTimeout(timeout)
+      if (e) return reject(e)
+      resolve(res)
+    })
+  })
+}
 
 
 if (ADS) {
@@ -655,14 +677,18 @@ if (ADS) {
 // should let owner place ads after rent period is over - covered at rent section
   it("should let landlord place images", async () => {
     const me2 = await MillionEther.deployed();
+    const ads = await Ads.deployed();
     const advertiser = user_1;
     const some_guy = user_2;
 
     await me2.buyArea(50, 1, 54, 4, {from: advertiser, value: web3.toWei(20000, 'wei'), gas: 4712388});
-    assertThrows(me2.placeAds(50, 1, 54, 4, "imageSourceUrl", "adUrl", "adText",  {from: some_guy, gas: 4712388}),
+    const before = await numImages(ads); 
+    await assertThrows(me2.placeAds(50, 1, 54, 4, "imageSourceUrl", "adUrl", "adText",  {from: some_guy, gas: 4712388}),
         "Should've permited anybody to place ads!");
-    await me2.placeAds(50, 1, 54, 4, "imageSourceUrl", "adUrl", "adText",  {from: advertiser, gas: 4712388});
-
+    tx = await me2.placeAds(50, 1, 54, 4, "imageSourceUrl", "adUrl", "adText",  {from: advertiser, gas: 4712388});
+    assert.equal(await numImages(ads) - before, 1, 
+        "Num images didn't increment right!");
+    assert.equal(tx.logs[0].args.advertiser, advertiser, "Wrong advertiser in logs!");
   })
 
 
@@ -674,21 +700,25 @@ if (ADS) {
     const some_guy = user_2;
 
     let event = me2.LogAds({});
-    
     let watcher = async function (err, result) {
+        console.log(result);
         event.stopWatching();
         if (err) { throw err; }
         assert.equal(result.event, "LogAds", "Wrong event!")
         assert.equal(result.args.advertiser, advertiser, "Wrong publisher!")
     }
-
     await me2.buyArea(55, 1, 56, 2, {from: advertiser, value: web3.toWei(4000, 'wei'), gas: 4712388});
     await me2.buyArea(55, 3, 56, 4, {from: some_guy, value: web3.toWei(4000, 'wei'), gas: 4712388});
     await me2.rentOutArea(55, 3, 56, 4, 200, {from: some_guy, gas: 4712388});
-    await me2.rentArea(55, 3, 56, 4, 2, {from: advertiser, value: web3.toWei(1600, 'wei'), gas: 4712388})
+    await me2.rentArea(55, 3, 56, 4, 2, {from: advertiser, value: web3.toWei(1600, 'wei'), gas: 4712388});
+    
+    const before = await numImages(ads); 
     tx = await me2.placeAds(55, 1, 56, 4, "imageSourceUrl", "adUrl", "adText",  {from: advertiser, gas: 4712388});
-    logGas(tx, "placeAds(55, 1, 56, 4)");
-    await awaitEvent(event, watcher);
+    console.log(tx);
+    assert.equal(await numImages(ads) - before, 1, 
+        "Num images didn't increment right!");
+    assert.equal(tx.logs[0].args.advertiser, advertiser, "Wrong advertiser in logs!");
+    // await awaitEvent(event, watcher);
     
   })
 }
@@ -706,11 +736,11 @@ if(ADMIN) { // (59, 59) - (60, 60), (1, 30) - (5, 40)
     const oldOwner = "0xca9f7d9ad4127e374cdab4bd0a884790c1b03946";
 
     await me2.buyArea(60, 60, 60, 60, {from: buyer, value: web3.toWei(1000, 'wei'), gas: 4712388});
-    assertThrows(market.adminImportOldMEBlock(60, 60, {from: admin, gas: 4712388}),
+    await assertThrows(market.adminImportOldMEBlock(60, 60, {from: admin, gas: 4712388}),
         "Imported on top of an owned block!");
-    assertThrows(market.adminImportOldMEBlock(60, 60, {from: admin, gas: 4712388}),
+    await assertThrows(market.adminImportOldMEBlock(60, 60, {from: admin, gas: 4712388}),
         "Imported block with no landlord!");
-    assertThrows(market.adminImportOldMEBlock(59, 59, {from: buyer, gas: 4712388}),
+    await assertThrows(market.adminImportOldMEBlock(59, 59, {from: buyer, gas: 4712388}),
         "Only admin can import blocks!");
     var tx = await market.adminImportOldMEBlock(59, 59, {from: admin, gas: 4712388});
     logGas(tx, "Import OldME Block");
@@ -732,29 +762,28 @@ if(ADMIN) { // (59, 59) - (60, 60), (1, 30) - (5, 40)
     // deposit explicitly excessive funds to test withdrawal
     tx = await me2.buyArea(1, 50, 1, 50, {from: buyer, value: web3.toWei(10000, 'wei'), gas: 4712388});
     tx = await me2.rentOutArea(1, 50, 1, 50, 200, {from: buyer, gas: 4712388});
-
-    assertThrows(me2.pause({from: buyer, gas: 4712388}),
+    await assertThrows(me2.pause({from: buyer, gas: 4712388}),
         "Paused me2 by some guy!");
-    assertThrows(market.pause({from: buyer, gas: 4712388}),
+    await assertThrows(market.pause({from: buyer, gas: 4712388}),
         "Paused market by some guy!");
-    assertThrows(rentals.pause({from: buyer, gas: 4712388}),
+    await assertThrows(rentals.pause({from: buyer, gas: 4712388}),
         "Paused rentals by some guy!");
-    assertThrows(ads.pause({from: buyer, gas: 4712388}),
+    await assertThrows(ads.pause({from: buyer, gas: 4712388}),
         "Paused ads by some guy!");
 
     // pause-unpause modules
     await market.pause({from: admin, gas: 4712388});
     await rentals.pause({from: admin, gas: 4712388});
     await ads.pause({from: admin, gas: 4712388});
-    assertThrows(me2.placeAds(1, 50, 1, 50, "imageSourceUrl", "adUrl", "adText",  {from: buyer, gas: 4712388}),
+    await assertThrows(me2.placeAds(1, 50, 1, 50, "imageSourceUrl", "adUrl", "adText",  {from: buyer, gas: 4712388}),
         "Should've permited to place ads when paused!");
-    assertThrows(me2.sellArea(1, 50, 1, 50, 2, {from: buyer, gas: 4712388}),
+    await assertThrows(me2.sellArea(1, 50, 1, 50, 2, {from: buyer, gas: 4712388}),
         "Sold a block when paused!");
-    assertThrows(me2.rentOutArea(1, 50, 1, 50, 100, {from: buyer}),
+    await assertThrows(me2.rentOutArea(1, 50, 1, 50, 100, {from: buyer}),
         "Rented out a block when paused!");
-    assertThrows(me2.rentArea(1, 50, 1, 50, 2, {from: renter, value: web3.toWei(1600, 'wei'), gas: 4712388}),
+    await assertThrows(me2.rentArea(1, 50, 1, 50, 2, {from: renter, value: web3.toWei(1600, 'wei'), gas: 4712388}),
         "Rented a block when paused!");
-    assertThrows(me2.buyArea(1, 51, 1, 51, {from: buyer, value: web3.toWei(1000, 'wei'), gas: 4712388}),
+    await assertThrows(me2.buyArea(1, 51, 1, 51, {from: buyer, value: web3.toWei(1000, 'wei'), gas: 4712388}),
         "Bought a block when paused!");
     await market.unpause({from: admin, gas: 4712388});
     await rentals.unpause({from: admin, gas: 4712388});
@@ -762,23 +791,23 @@ if(ADMIN) { // (59, 59) - (60, 60), (1, 30) - (5, 40)
 
     // pause-unpause main
     await me2.pause({from: admin, gas: 4712388});
-    assertThrows(me2.withdraw({from: buyer, gas: 4712388}),
+    await assertThrows(me2.withdraw({from: buyer, gas: 4712388}),
         "withdrawed when paused!");
-    assertThrows(me2.placeAds(1, 50, 1, 50, "imageSourceUrl", "adUrl", "adText",  {from: buyer, gas: 4712388}),
+    await assertThrows(me2.placeAds(1, 50, 1, 50, "imageSourceUrl", "adUrl", "adText",  {from: buyer, gas: 4712388}),
         "Should've permited to place ads when paused!");
-    assertThrows(me2.safeTransferFrom(buyer, renter, getBlockId(1, 50), {from: buyer, gas: 4712388}),
-        "Safe Transfered block when paused!");    
-    assertThrows(me2.approve(renter, getBlockId(1, 50), {from: buyer, gas: 4712388}),
-        "Approved block transfer when paused!");    
-    assertThrows(me2.setApprovalForAll(renter, true, {from: buyer, gas: 4712388}),
+    await assertThrows(me2.safeTransferFrom(buyer, renter, getBlockId(1, 50), {from: buyer, gas: 4712388}),
+        "Safe Transfered block when paused!");  
+    await assertThrows(me2.approve(renter, getBlockId(1, 50), {from: buyer, gas: 4712388}),
+        "Approved block transfer when paused!");
+    await assertThrows(me2.setApprovalForAll(renter, true, {from: buyer, gas: 4712388}),
         "Set Approval For All when paused!");
-    assertThrows(me2.sellArea(1, 50, 1, 50, 2, {from: buyer, gas: 4712388}),
+    await assertThrows(me2.sellArea(1, 50, 1, 50, 2, {from: buyer, gas: 4712388}),
         "Sold a block when paused!");
-    assertThrows(me2.rentOutArea(1, 50, 1, 50, 100, {from: buyer}),
+    await assertThrows(me2.rentOutArea(1, 50, 1, 50, 100, {from: buyer}),
         "Rented out a block when paused!");
-    assertThrows(me2.rentArea(1, 50, 1, 50, 2, {from: renter, value: web3.toWei(1600, 'wei'), gas: 4712388}),
+    await assertThrows(me2.rentArea(1, 50, 1, 50, 2, {from: renter, value: web3.toWei(1600, 'wei'), gas: 4712388}),
         "Rented a block when paused!");
-    assertThrows(me2.buyArea(1, 51, 1, 51, {from: buyer, value: web3.toWei(1000, 'wei'), gas: 4712388}),
+    await assertThrows(me2.buyArea(1, 51, 1, 51, {from: buyer, value: web3.toWei(1000, 'wei'), gas: 4712388}),
         "Bought a block when paused!");
     await me2.unpause({from: admin, gas: 4712388});
     })
@@ -793,9 +822,24 @@ if(ADMIN) { // (59, 59) - (60, 60), (1, 30) - (5, 40)
     const buyer = user_1;
     const renter = user_2;
 
-    // set Oracle (1,52,1,52)
+
     const new_oracle_proxy = await OracleProxyStub.deployed();
-    assertThrows(market.adminSetOracle(OracleProxyStub.address, {from: buyer, gas: 4712388}),
+    const new_market = await MarketStub.deployed(); 
+    const new_rentals = await RentalsStub.deployed();
+    const new_ads = await AdsStub.deployed();
+    // try connecting wrong modules
+    await assertThrows(market.adminSetOracle(new_ads.address, {from: admin, gas: 4712388}),
+        "Connected Ads module as Oracle!");
+    await assertThrows(me2.adminSetMarket(new_rentals.address, {from: admin, gas: 4712388}),
+        "Connected Rentals module as Market!");
+    await assertThrows(me2.adminSetRentals(new_market.address, {from: admin, gas: 4712388}),
+        "Connected Market module as Rentals!");
+    await assertThrows(me2.adminSetAds(OracleProxyStub.address, {from: admin, gas: 4712388}),
+        "Connected Ads module as Market!");
+
+    // set Oracle (1,52,1,52)
+    
+    await assertThrows(market.adminSetOracle(OracleProxyStub.address, {from: buyer, gas: 4712388}),
         "Some guy just set new Oracle!");
     await market.adminSetOracle(OracleProxyStub.address, {from: admin, gas: 4712388});
     result = await me2.areaPrice.call(1, 52, 1, 52);
@@ -804,8 +848,8 @@ if(ADMIN) { // (59, 59) - (60, 60), (1, 30) - (5, 40)
     await market.adminSetOracle(OracleProxy.address, {from: admin, gas: 4712388});
 
     // set Market
-    const new_market = await MarketStub.deployed(); 
-    assertThrows(me2.adminSetMarket(new_market.address, {from: buyer, gas: 4712388}),
+    
+    await assertThrows(me2.adminSetMarket(new_market.address, {from: buyer, gas: 4712388}),
         "Some guy just set new Oracle!");
     await me2.adminSetMarket(new_market.address, {from: admin, gas: 4712388});
     result = await me2.areaPrice.call(1, 52, 1, 52);
@@ -814,8 +858,8 @@ if(ADMIN) { // (59, 59) - (60, 60), (1, 30) - (5, 40)
     await me2.adminSetMarket(market.address, {from: admin, gas: 4712388});
 
     // adminSetRentals
-    const new_rentals = await RentalsStub.deployed(); 
-    assertThrows(me2.adminSetRentals(new_rentals.address, {from: buyer, gas: 4712388}),
+     
+    await assertThrows(me2.adminSetRentals(new_rentals.address, {from: buyer, gas: 4712388}),
         "Some guy just set new Rentals!");
     await me2.adminSetRentals(new_rentals.address, {from: admin, gas: 4712388});
     result = await me2.areaRentPrice.call(1, 52, 1, 52,1);
@@ -824,36 +868,28 @@ if(ADMIN) { // (59, 59) - (60, 60), (1, 30) - (5, 40)
     await me2.adminSetRentals(rentals.address, {from: admin, gas: 4712388});
 
     // adminSetAds
-    const new_ads = await AdsStub.deployed(); 
-    assertThrows(me2.adminSetAds(new_ads.address, {from: buyer, gas: 4712388}),
+     
+    await assertThrows(me2.adminSetAds(new_ads.address, {from: buyer, gas: 4712388}),
         "Some guy just set new Ads!");
     await me2.adminSetAds(new_ads.address, {from: admin, gas: 4712388});
-    result = await me2.canAdvertise.call(buyer, 1, 52, 1, 52, {from: buyer, gas: 4712388});
+    result = await me2.canAdvertise.call(buyer, 1, 52, 1, 52);
     assert.equal(result, true,
         "Couldn't get 42 from new ads contract (a stub)!")
     await me2.adminSetAds(ads.address, {from: admin, gas: 4712388});
 
-    // try connecting wrong modules
-    assertThrows(market.adminSetOracle(new_ads.address, {from: admin, gas: 4712388}),
-        "Connected Ads module as Oracle!");
-    assertThrows(me2.adminSetMarket(new_rentals.address, {from: admin, gas: 4712388}),
-        "Connected Rentals module as Market!");
-    assertThrows(me2.adminSetRentals(new_market.address, {from: admin, gas: 4712388}),
-        "Connected Market module as Rentals!");
-    assertThrows(me2.adminSetAds(OracleProxyStub.address, {from: admin, gas: 4712388}),
-        "Connected Ads module as Market!");
+
   })
 
 // Admin: adjust settings 
   it("Should let admin (and only admin) adjust Max Rent Period", async () => {
     const rentals = await Rentals.deployed();
     const some_guy  = user_1;
-    assertThrows(rentals.adminSetMaxRentPeriod(42, {from: some_guy, gas: 4712388}),
+    await assertThrows(rentals.adminSetMaxRentPeriod(42, {from: some_guy, gas: 4712388}),
         "Some guy just set new Max Rent Period (sould be allowed to admin only)!");
-    assertThrows(rentals.adminSetMaxRentPeriod(0, {from: admin, gas: 4712388}),
+    await assertThrows(rentals.adminSetMaxRentPeriod(0, {from: admin, gas: 4712388}),
         "Max Rent Period was set to 0!");
     await rentals.adminSetMaxRentPeriod(42, {from: admin, gas: 4712388});
-    assert.equal(await rentals.maxRentPeriod.call({from: admin, gas: 4712388}), 42, 
+    assert.equal(await rentals.maxRentPeriod.call(), 42, 
         "Max Rent Period wasn't set correctly");
     await rentals.adminSetMaxRentPeriod(90, {from: admin, gas: 4712388});
   })
@@ -867,9 +903,9 @@ if(ADMIN) { // (59, 59) - (60, 60), (1, 30) - (5, 40)
     tx = await me2.buyArea(1, 53, 1, 53, {from: buyer, value: web3.toWei(1000, 'wei'), gas: 4712388});
     const before = await mehState(me2);
 
-    assertThrows(market.adminTransferCharity(charity_org, 42, {from: buyer, gas: 4712388}),
+    await assertThrows(market.adminTransferCharity(charity_org, 42, {from: buyer, gas: 4712388}),
         "Some guy just transfered charity (should be allowed to admin only)!");
-    assertThrows(market.adminTransferCharity(admin, 42, {from: admin, gas: 4712388}),
+    await assertThrows(market.adminTransferCharity(admin, 42, {from: admin, gas: 4712388}),
         "Admin just transfered charity to himself!");
     await market.adminTransferCharity(charity_org, 42, {from: admin, gas: 4712388});
 
@@ -895,14 +931,14 @@ if(ADMIN) { // (59, 59) - (60, 60), (1, 30) - (5, 40)
     const buyer = user_1;
     tx = await me2.buyArea(1, 54, 5, 55, {from: buyer, value: web3.toWei(10000, 'wei'), gas: 4712388});
     
-    assertThrows(me2.adminRescueFunds({from: buyer, gas: 4712388}),
+    await assertThrows(me2.adminRescueFunds({from: buyer, gas: 4712388}),
         "Some guy just took all the money and ran (should be allowed to admin only)!");
-    assertThrows(me2.adminRescueFunds({from: admin, gas: 4712388}),
+    await assertThrows(me2.adminRescueFunds({from: admin, gas: 4712388}),
         "Admin took all the money whereas there is no emergency!");
     await me2.pause({from: admin, gas: 4712388});
 
     const before = await mehState(me2);
-    const admin_bal_before = await web3.eth.getBalance(admin);
+    const admin_bal_before = await getBalance(admin);
     tx = await me2.adminRescueFunds({from: admin, gas: 4712388});
     paid_for_gas = web3.toWei(tx.receipt.gasUsed * gas_price, "wei");
     const after = await mehState(me2);
@@ -916,7 +952,7 @@ if(ADMIN) { // (59, 59) - (60, 60), (1, 30) - (5, 40)
         blocks_sold: 0
     };
     checkStateChange(before, after, deltas);
-    const admin_bal_after = await web3.eth.getBalance(admin);
+    const admin_bal_after = await getBalance(admin);
     assert.equal(admin_bal_after.minus(admin_bal_before).toNumber(), before.contract_bal_eth.minus(paid_for_gas).toNumber(),                       
         "Admin didn't recieve all rescued funds");
     await me2.unpause({from: admin, gas: 4712388});
@@ -931,13 +967,13 @@ if(ADMIN) { // (59, 59) - (60, 60), (1, 30) - (5, 40)
     const some_guy = user_1;
     const new_owner = user_2;
     
-    assertThrows(ads.transferOwnership(new_owner, {from: some_guy, gas: 4712388}),
+    await assertThrows(ads.transferOwnership(new_owner, {from: some_guy, gas: 4712388}),
         "Some guy just transfered ownership of Ads (should be allowed to admin only)!");
-    assertThrows(rentals.transferOwnership(new_owner, {from: some_guy, gas: 4712388}),
+    await assertThrows(rentals.transferOwnership(new_owner, {from: some_guy, gas: 4712388}),
         "Some guy just transfered ownership of Ads (should be allowed to admin only)!");
-    assertThrows(market.transferOwnership(new_owner, {from: some_guy, gas: 4712388}),
+    await assertThrows(market.transferOwnership(new_owner, {from: some_guy, gas: 4712388}),
         "Some guy just transfered ownership of Ads (should be allowed to admin only)!");
-    assertThrows(me2.transferOwnership(new_owner, {from: some_guy, gas: 4712388}),
+    await assertThrows(me2.transferOwnership(new_owner, {from: some_guy, gas: 4712388}),
         "Some guy just transfered ownership of Ads (should be allowed to admin only)!");
 
     await ads.transferOwnership(new_owner, {from: admin, gas: 4712388});
@@ -993,15 +1029,15 @@ if (CHECK_PRICE_DOUBLING) {
     const before = await mehState(me2);
 
     const blocks_to_buy = 1000 - before.blocks_sold;
-    const number_of_40_block_packs = Math.trunc(blocks_to_buy/40);
+    const number_of_40_block_packs = Math.trunc(blocks_to_buy/38);
     var i; var tx;
     for (i = 0; i < number_of_40_block_packs; i++) {
-        // console.log(i);
-        tx = await me2.buyArea(1, 10+i, 40, 10+i, {from: very_rich_buyer, value: web3.toWei(40000, 'wei'), gas: 6721975});
+        console.log(i);
+        tx = await me2.buyArea(1, 10+i, 38, 10+i, {from: very_rich_buyer, value: web3.toWei(38000, 'wei'), gas: 6721975});
     }
-    logGas(tx, "buyArea from owner (40 blocks)");
+    logGas(tx, "buyArea from owner (38 blocks)");
 
-    const number_of_1_block_packs = blocks_to_buy % 40;
+    const number_of_1_block_packs = blocks_to_buy % 38;
     if (number_of_1_block_packs > 0) {
        tx = await me2.buyArea(1, 9, number_of_1_block_packs, 9, {from: very_rich_buyer, value: web3.toWei(number_of_1_block_packs * 1000, 'wei'), gas: 6721975}); 
     }
@@ -1026,9 +1062,19 @@ if (CHECK_PRICE_DOUBLING) {
 
 // TODO check insuficient funds 
 
-// todo sefdestruct all
   it("Clean up.", async () => {
-    
+    const me2 = await MillionEther.deployed();
+    await ignoreThrow(me2.withdraw({from: admin, gas: 4712388})); 
+    await ignoreThrow(me2.withdraw({from: user_1, gas: 4712388})); 
+    await ignoreThrow(me2.withdraw({from: user_2, gas: 4712388})); 
+    await ignoreThrow(me2.withdraw({from: user_3, gas: 4712388})); 
+
+    await me2.destroy({from: admin, gas: 4712388});
+    await (await OldeMillionEther.deployed()).destroy({from: admin, gas: 4712388});
+    await (await Market.deployed()).destroy({from: admin, gas: 4712388});
+    await (await Ads.deployed()).destroy({from: admin, gas: 4712388});
+    await (await Rentals.deployed()).destroy({from: admin, gas: 4712388});
+    await (await OracleProxy.deployed()).destroy({from: admin, gas: 4712388});
   })
 
 // TODO check all necessary events
