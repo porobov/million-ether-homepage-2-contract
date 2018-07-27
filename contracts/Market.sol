@@ -1,43 +1,46 @@
-/*
-MillionEther smart contract - decentralized advertising platform.
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.
-*/
-
 pragma solidity ^0.4.18;
 
 import "./MehModule.sol";
-// import "../installed_contracts/math.sol";
 import "./mockups/OracleProxy.sol";
 import "./mockups/OldeMillionEther.sol";
 
+// @title Market: Pluggable module for MEH contract responsible for buy-sell operations including 
+//  initial sale. 80% of initial sale income goes to charity. Initial sale price doubles every 1000 
+//  blocks sold
+// @dev this contract is unaware of xy block coordinates - ids only (ids are ERC721 tokens)
 contract Market is MehModule {
 
-    // Contracts
+    // Makes MEH contract sure it plugged in the right module 
     bool public isMarket = true;
+
+    // The address of the previous version of The Million Ether Homepage (MEH). 
+    // The previous version was published at Dec-13-2016 and was priced in ETH. As the ETH price 
+    // strated to rise quickly in March 2017 the pixels became too expensive and nobody bought 
+    // new pixels since then. This new version of MEH is priced in USD.
+    // Old MEH is here - https://etherscan.io/address/0x15dbdB25f870f21eaf9105e68e249E0426DaE916. 
     OldeMillionEther public oldMillionEther;
+
+    // Address of an oracle proxy, pluggable. For flexibility sake OracleProxy is a separate module. 
+    // The only function of an OracleProxy is to provide usd price. Whenever a better usd Oracle 
+    // comes up (with better performance, price, decentralization level, etc.) a new OracleProxy 
+    // will be written and plugged.  
     OracleProxy public usd;
 
-    // Charity
-    address public constant charityVault = 0x616c6C20796F75206e656564206973206C6f7665; // "all you need is love" in hex format. Insures nobody has access to it. Used for internal acounting only. 
+    // Internal charity funds vault. 80% of initial sale income goes to this vault. 
+    
+    // The distribution of funds among charities is done manually through a dedicated address,
+    // beign used for charity purposes only. Charities in priority are published here:
+    // https://github.com/porobov/charities-accepting-ether (pull requests are welcome).
+    // The address string is "all you need is love" in hex format - insures nobody has access to it.
+    // Builded trust (trust history) vs trust by code... todo
+    address public constant charityVault = 0x616c6C20796F75206e656564206973206C6f7665; 
     uint public charityPayed = 0;
 
     // Map from block ID to their corresponding price tag.
-    /// @notice uint256 instead of uint16 for ERC721 compliance
+    // uint256 instead of uint16 for ERC721 compliance
     mapping (uint16 => uint256) blockIdToPrice;
     
-    // keeps track of buy-sell events
+    // Keeps track of buy-sell events
     uint public numOwnershipStatuses = 0;
 
     // Reports
@@ -46,6 +49,10 @@ contract Market is MehModule {
 
 // ** INITIALIZE ** //
     
+    /// @dev Initialize Market contract.
+    /// @param _mehAddress address of the main Million Ether Homepage contract
+    /// @param _oldMehAddress address of the previous MEH version for import
+    /// @param _oracleProxyAddress usd oracle address. Can be changed afterwards
     constructor(address _mehAddress, address _oldMehAddress, address _oracleProxyAddress)
         MehModule(_mehAddress)
         public
@@ -55,7 +62,8 @@ contract Market is MehModule {
     }
 
 // ** BUY BLOCKS ** //
-
+    
+    /// @dev Lets buy a list of blocks by block ids
     function buyBlocks(address buyer, uint16[] _blockList) 
         external
         onlyMeh
@@ -69,53 +77,67 @@ contract Market is MehModule {
         return numOwnershipStatuses;
     }
 
+    /// @dev buys 1 block
     function _buyBlock(address _buyer, uint16 _blockId) private {
+        // checks if a block id is already minted (if ERC721 token exists)
         if (exists(_blockId)) {
+            // if minted it means that the block has an owner, try to by from owner
             buyOwnedBlock(_buyer, _blockId);
         } else {
+            // if not minted yet, buy from crowdsale (also called initial sale here)
             buyCrowdsaleBlock(_buyer, _blockId);
         }
     }
-
+    /// @dev buy a block (by id) from current owner (if an owner is selling)
     function buyOwnedBlock(address _buyer, uint16 _blockId) private {
         uint blockPrice = blockSellPrice(_blockId);
         address blockOwner = ownerOf(_blockId);
         require(blockPrice > 0);
         require(_buyer != blockOwner);
 
+        // transfer funds internally (no external calls)
         transferFunds(_buyer, blockOwner, blockPrice);
+        // transfer ERC721 token (block id) to a new owner
         transferNFT(blockOwner, _buyer, _blockId);
+        // reset sell price
         setSellPrice(_blockId, 0);
     }
 
+    /// @dev buy a block (by id) at crowdsale (initial sale). 
     function buyCrowdsaleBlock(address _buyer, uint16 _blockId) private {
         uint blockPrice = crowdsalePriceWei();
         transferFundsToAdminAndCharity(_buyer, blockPrice);
+        // mint new ERC721 token
         mintCrowdsaleBlock(_buyer, _blockId);
     }
 
+    /// @dev get a block sell price set by block owner
     function blockSellPrice(uint16 _blockId) private view returns (uint) {
         return blockIdToPrice[_blockId];
     }
 
+    /// @dev calculates crowdsale (initial sale) price. Price doubles every 1000 block sold
     function crowdsalePriceWei() private view returns (uint) {
         uint256 blocksSold = meh.totalSupply();
+        // get ETHUSD price from an usd price oralce
         uint256 oneCentInWei = usd.oneCentInWei();
 
+        // sanity check (in case oracle proxy or oralce go completely mad)
         require(oneCentInWei > 0);
 
+        // return price in wei
         return crowdsalePriceUSD(blocksSold).mul(oneCentInWei).mul(100);
     }
 
-    /// @dev Doubles price every 1000 blocks sold.
-    /// @notice Internal instead of private for testing purposes. 
+    /// @dev calculates price in USD. Doubles every 1000 blocks sold.
     function crowdsalePriceUSD(uint256 _blocksSold) internal pure returns (uint256) {
-        // can't overflow as _blocksSold == meh.totalSupply() and < 10000
+        // can't overflow as _blocksSold == meh.totalSupply() and meh.totalSupply() < 10000
         return 2 ** (_blocksSold / 1000);
     }
 
 // ** SELL BLOCKS ** //
-
+    
+    /// @dev Lets seller sell a list of blocks by block ids. 
     function sellBlocks(address seller, uint priceForEachBlockWei, uint16[] _blockList) 
         external
         onlyMeh
@@ -130,8 +152,8 @@ contract Market is MehModule {
         return numOwnershipStatuses;
     }
 
-    /// @dev Transfer blockId to market, set or update price tag. Return block to seller.
-    /// @notice _sellPriceWei = 0 - cancel sale, return blockId to seller
+    /// @dev Sets or updates price tag for a block id.
+    ///  _sellPriceWei = 0 - cancel sale
     function _sellBlock(uint16 _blockId, uint _sellPriceWei) private {
         setSellPrice(_blockId, _sellPriceWei);
     }
@@ -142,7 +164,7 @@ contract Market is MehModule {
 
 // ** ADMIN ** //
 
-    // transfer charity to an address (internally)
+    /// @dev transfer charity amount to an address (internally).
     function adminTransferCharity(address charityAddress, uint amount) external onlyOwner {
         require(charityAddress != owner);
         transferFunds(charityVault, charityAddress, amount);
@@ -150,15 +172,16 @@ contract Market is MehModule {
         emit LogCharityTransfer(charityAddress, amount);
     }
 
+    /// @dev set or reset an Oracle Proxy
     function adminSetOracle(address _address) public onlyOwner {
         OracleProxy candidateContract = OracleProxy(_address);
         require(candidateContract.isOracleProxy());
         usd = candidateContract;
-        // emit ContractUpgrade(_v2Address);
-        emit LogModuleUpgrade(_address, "OracleProxy");
+        emit LogModuleUpgrade(_address, "OracleProxy");  // todo 
     }
 
-    // import old contract blocks
+    /// @dev import old million ether contract blocks. See oldMillionEther variable 
+    ///  description above for more.
     function adminImportOldMEBlock(uint8 x, uint8 y) external onlyOwner {
         uint16 blockId = meh.blockID(x, y);
         require(!(exists(blockId)));
@@ -168,8 +191,9 @@ contract Market is MehModule {
     }
 
 // ** INFO ** //
-
-    function areaPrice(uint16[] _blockList) // todo maybe external?
+    
+    /// @dev get a sell price for a list of blocks 
+    function areaPrice(uint16[] _blockList)
         external 
         view 
         returns (uint totalPrice) 
@@ -181,7 +205,7 @@ contract Market is MehModule {
         }
     }
 
-    /// @notice e.g. permits ERC721 tokens transfer when they are on sale.
+    /// @dev checks if a block is on sale. Usage e.g. - permits ERC721 tokens transfer when on sale.
     function isOnSale(uint16 _blockId) public view returns (bool) {
         return (blockIdToPrice[_blockId] > 0);
     }
@@ -199,10 +223,7 @@ contract Market is MehModule {
     
 // ** PAYMENT PROCESSING ** //
 
-    /// @dev Reward admin and charity
-    /// @notice Just for admin convinience.
-    ///  Admin is allowed to transfer charity to any account. 
-    ///  Separates personal funds from charity.
+    /// @dev transfers 80% of payers funds to charity and 20% to contract owner (admin)
     function transferFundsToAdminAndCharity(address _payer, uint _amount) private {
         uint goesToCharity = _amount * 80 / 100;  // 80% goes to charity  // check for oveflow too (in case of oracle mistake)
         transferFunds(_payer, charityVault, goesToCharity);
@@ -210,11 +231,13 @@ contract Market is MehModule {
     }
 
 // ** ERC721 ** //
-
+    
+    /// @dev mint new ERC721 token
     function mintCrowdsaleBlock(address _to, uint16 _blockId) private {
         meh._mintCrowdsaleBlock(_to, _blockId);
     }
 
+    /// @dev transfer ERC721 token
     function transferNFT(address _from, address _to, uint16 _blockId) private {
         meh.transferFrom(_from, _to, _blockId);  // safeTransfer has external call
         return;

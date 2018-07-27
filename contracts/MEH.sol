@@ -4,21 +4,51 @@ import "./MehERC721.sol";
 import "./Accounting.sol";
 
 /*
-* There is a 1000x1000 pixel field displayed at TheMillionEtherHomepage.com. 
-* This smart contract lets you buy 10x10 pixel blocks and place your ads there. 
-* It also allows to sell blocks and rent them out to other advertisers. 
+MillionEther smart contract - decentralized advertising platform.
 
-Previous version is here 
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
 
-There are 4 parts 
-- MEH - accounting 
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
 
-* interface contract for The Million Ether Homepage. All logic is delegated to external upgradable contracts. 
-* This contract is immutable it keeps Non fungible ERC721 tokens (10x10 pixel blocks) ledger and eth balances.
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
+
+/*
+* A 1000x1000 pixel field is displayed at TheMillionEtherHomepage.com. 
+* This smart contract lets anyone buy 10x10 pixel blocks and place ads there.
+* It also allows to sell blocks and rent them out to other advertisers. 
+*
+* 10x10 pixels blocks are addressed by xy coordinates. So 1000x1000 pixel field is 100 by 100 blocks.
+* Making up 10 000 blocks in total. Each block is an ERC721 (non fungible token) token. 
+*
+* At the initial sale the price for each block is $1 (price is feeded by an oracle). After
+* every 1000 blocks sold (every 10%) the price doubles. Owners can sell and rent out blocks at any
+* price they want. Owners and renters can place and replace ads to their blocks as many times they want.
+*
+* All heavy logic is delegated to external upgradable contracts. There are 4 main modules (contracts):
+*     - MEH: Million Ether Homepage (MEH) contract. Provides user interface and accounting 
+*         functionality. It is immutable and it keeps Non fungible ERC721 tokens (10x10 pixel blocks) 
+*         ledger and eth balances. 
+*     - Market: Plugable. Provides methods for buy-sell functionality, keeps buy-sell ledger, querries
+*         oracle for a ETH-USD price, 
+*     - Rentals: Plugable. Provides methods for rentout-rent functionality, keeps rentout-rent ledger.
+*     - Ads: Plugable. Provides methods for image placement functionality.
+* 
+*/
+
+/// @title MEH: Million Ether Homepage. Buy, sell, rent out pixels and place ads.
+/// @author Peter Porobov (https://keybase.io/peterporobov)
+/// @notice The main contract, accounting and user interface. Immutable.
 contract MEH is MehERC721, Accounting {
 
-    /// @dev emited when an area blocks is bought
+    /// @notice emited when an area blocks is bought
     event LogBuys(
         uint ID,
         uint8 fromX,
@@ -28,7 +58,7 @@ contract MEH is MehERC721, Accounting {
         address newLandlord
     );
 
-    /// @dev emited when an area blocks is marked for sale
+    /// @notice emited when an area blocks is marked for sale
     event LogSells(
         uint ID,
         uint8 fromX,
@@ -38,7 +68,7 @@ contract MEH is MehERC721, Accounting {
         uint sellPrice
     );
 
-    /// @dev emited when an area blocks is marked for rent
+    /// @notice emited when an area blocks is marked for rent
     event LogRentsOut(
         uint ID,
         uint8 fromX,
@@ -48,7 +78,7 @@ contract MEH is MehERC721, Accounting {
         uint rentPricePerPeriodWei
     );
 
-    /// @dev emited when an area blocks is rented
+    /// @notice emited when an area blocks is rented
     event LogRents(
         uint ID,
         uint8 fromX,
@@ -59,7 +89,7 @@ contract MEH is MehERC721, Accounting {
         uint rentedFrom
     );
 
-    /// @dev emited when an ad is placed to an area
+    /// @notice emited when an ad is placed to an area
     event LogAds(uint ID, 
         uint8 fromX,
         uint8 fromY,
@@ -72,7 +102,10 @@ contract MEH is MehERC721, Accounting {
 
 // ** BUY AND SELL BLOCKS ** //
     
-    /// @dev lets a message sender to buy blocks within area
+    /// @notice lets a message sender to buy blocks within area
+    /// @dev if using a contract to buy an area make sure to implement ERC721 functionality 
+    ///  as tokens are transfered using "transferFrom" function and not "safeTransferFrom"
+    ///  in order to avoid external calls.
     function buyArea(uint8 fX, uint8 fY, uint8 toX, uint8 toY) 
         external
         whenNotPaused
@@ -89,8 +122,8 @@ contract MEH is MehERC721, Accounting {
         emit LogBuys(id, fX, fY, toX, toY, msg.sender);
     }
 
-    /// @dev lets a message sender to mark blocks for sale at price set for each block in wei
-    /// @notice (priceForEachBlockCents = 0 - not for sale)
+    /// @notice lets a message sender to mark blocks for sale at price set for each block in wei
+    /// @dev (priceForEachBlockCents = 0 - not for sale)
     function sellArea(uint8 fX, uint8 fY, uint8 toX, uint8 toY, uint priceForEachBlockWei) // TODO sellTo
         external 
         whenNotPaused
@@ -104,7 +137,7 @@ contract MEH is MehERC721, Accounting {
         emit LogSells(id, fX, fY, toX, toY, priceForEachBlockWei);
     }
 
-    /// @dev get area price in wei
+    /// @notice get area price in wei
     function areaPrice(uint8 fX, uint8 fY, uint8 toX, uint8 toY) 
         public 
         view 
@@ -119,8 +152,8 @@ contract MEH is MehERC721, Accounting {
 
 // ** RENT OUT AND RENT BLOCKS ** //
         
-    /// @dev Rent out an area of blocks at coordinates [fromX, fromY, toX, toY] at a price for each block in wei
-    /// @notice if _rentPricePerPeriodWei = 0 then makes area not available for rent
+    /// @notice Rent out an area of blocks at coordinates [fromX, fromY, toX, toY] at a price for each block in wei
+    /// @dev if _rentPricePerPeriodWei = 0 then makes area not available for rent
     function rentOutArea(uint8 fX, uint8 fY, uint8 toX, uint8 toY, uint _rentPricePerPeriodWei)  // TODO maxRentPeriod, minRentPeriod,  
         external
         whenNotPaused
@@ -134,7 +167,7 @@ contract MEH is MehERC721, Accounting {
         emit LogRentsOut(id, fX, fY, toX, toY, _rentPricePerPeriodWei);
     }
     
-    /// @dev Rent an area of blocks at coordinates [fromX, fromY, toX, toY] for a number of periods specified
+    /// @notice Rent an area of blocks at coordinates [fromX, fromY, toX, toY] for a number of periods specified
     ///  (period length is specified in rentals contract)
     function rentArea(uint8 fX, uint8 fY, uint8 toX, uint8 toY, uint _numberOfPeriods)  // TODO RentFrom
         external
@@ -153,7 +186,7 @@ contract MEH is MehERC721, Accounting {
         emit LogRents(id, fX, fY, toX, toY, _numberOfPeriods, 0);
     }
 
-    /// @dev get area rent price in wei for number of periods specified 
+    /// @notice get area rent price in wei for number of periods specified 
     ///  (period length is specified in rentals contract) 
     function areaRentPrice(uint8 fX, uint8 fY, uint8 toX, uint8 toY, uint _numberOfPeriods)
         public 
@@ -169,8 +202,8 @@ contract MEH is MehERC721, Accounting {
 
 // ** PLACE ADS ** //
     
-    /// @dev places ads (image, caption and link to an advertised website) into desired coordinates
-    /// @notice nothing is stored in any of the contracts except an image id. All other data is 
+    /// @notice places ads (image, caption and link to an advertised website) into desired coordinates
+    /// @dev nothing is stored in any of the contracts except an image id. All other data is 
     ///  only emitted in event. Basicaly this function just verifies if an event is allowed 
     ///  to be emitted.
     function placeAds( 
@@ -194,7 +227,7 @@ contract MEH is MehERC721, Accounting {
         emit LogAds(AdsId, fX, fY, toX, toY, imageSource, link, text, msg.sender);
     }
 
-    /// @dev check if an advertiser is allowed to put ads within area (i.e. owns or rents all blocks)
+    /// @notice check if an advertiser is allowed to put ads within area (i.e. owns or rents all blocks)
     function canAdvertise(
         address advertiser,
         uint8 fX, 
@@ -215,7 +248,7 @@ contract MEH is MehERC721, Accounting {
 
 // ** INFO GETTERS ** //
     
-    /// @dev get an owner(address) of block at a specified coordinates
+    /// @notice get an owner(address) of block at a specified coordinates
     function getBlockOwner(uint8 x, uint8 y) external view returns (address) {
         return ownerOf(blockID(x, y));
     }
@@ -224,17 +257,17 @@ contract MEH is MehERC721, Accounting {
 
 // ** UTILS ** //
     
-    /// @dev get ERC721 token id corresponding to xy coordinates
+    /// @notice get ERC721 token id corresponding to xy coordinates
     function blockID(uint8 _x, uint8 _y) public pure returns (uint16) {
         return (uint16(_y) - 1) * 100 + uint16(_x);
     }
 
-    /// @dev get a number of blocks within area
+    /// @notice get a number of blocks within area
     function countBlocks(uint8 fX, uint8 fY, uint8 toX, uint8 toY) internal pure returns (uint16){
         return (toX - fX + 1) * (toY - fY + 1);
     }
 
-    /// @dev get an array of all block ids (i.e. ERC721 token ids) within area
+    /// @notice get an array of all block ids (i.e. ERC721 token ids) within area
     function blocksList(
         uint8 fX, 
         uint8 fY, 
@@ -254,9 +287,9 @@ contract MEH is MehERC721, Accounting {
             }
         }
     }
-    /// @dev insures that area coordinates are within 100x100 field and 
+    /// @notice insures that area coordinates are within 100x100 field and 
     ///  from-coordinates >= to-coordinates
-    /// @notice function is used instead of modifier as modifier 
+    /// @dev function is used instead of modifier as modifier 
     ///  required too much stack for placeImage and rentBlocks
     function isLegalCoordinates(
         uint8 _fX, 
