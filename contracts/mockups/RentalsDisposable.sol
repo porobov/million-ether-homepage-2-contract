@@ -2,6 +2,7 @@ pragma solidity ^0.4.24;
 
 import "../Rentals.sol";
 
+/// Not for production. Functionality added for testing and cleanup purposes only. 
 contract RentalsDisposable is Rentals {
     constructor(address _mehAddress) Rentals(_mehAddress) {}
     

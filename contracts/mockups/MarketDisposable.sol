@@ -2,6 +2,7 @@ pragma solidity ^0.4.24;
 
 import "../Market.sol";
 
+/// Not for production. Functionality added for testing and cleanup purposes only. 
 contract MarketDisposable is Market {
     
     constructor(
