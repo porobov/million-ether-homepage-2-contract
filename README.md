@@ -9,9 +9,9 @@ Decentralized advertising platform.
 - A 10x10 pixel block is an ERC721 token.
 
 ### Your benefits 
-- Buy pixels early and sell, when the price goes up
-- Buy pixels and rent them out to advertisers
-- Advertise your own product
+- Buy pixels early and sell, when the price goes up.
+- Buy pixels and rent them out to advertisers.
+- Advertise your own product.
 
 ### Smart contracts at Rinkeby testnet (Etherscan):
 

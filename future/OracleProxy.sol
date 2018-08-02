@@ -1,19 +1,24 @@
 pragma solidity ^0.4.11;
 
-import "./Ownable.sol";
-import "./Destructible.sol";
-// import "github.com/oraclize/ethereum-api/oraclizeAPI.sol";
-import "./MEMockup.sol";
+import "github.com/OpenZeppelin/openzeppelin-solidity/contracts/lifecycle/Destructible.sol";
+import "github.com/OpenZeppelin/openzeppelin-solidity/contracts/ownership/Ownable.sol";
+import "github.com/oraclize/ethereum-api/oraclizeAPI.sol";
 
-contract ExampleContract is usingOraclize, Ownable, Destructible {
+contract OracleProxy is Ownable, Destructible, usingOraclize {
     
-    // global defaults
-    MillionEther public ME;
-    uint public DELAY;
+    // cofirm it's the right Oracle proxy
+    bool public isOracleProxy = true;
+
+    // stores ETHUSD price (one cent in wei)
+    uint public oneCentInWei = 10 wei;
+
+    // Oracalize default callback gas limit is 200000. More accurate estimate saves money.
+    uint public callbackGasLimit;
+
+    // Default REQUEST URL string (according to Oracalize API)
     string public REQUEST_URL;
-    uint public GAS_PRICE;  // reference only
     
-    // a mapping to keep track of valid requests to Oracalize
+    // Mapping to keep track of valid requests to Oracalize
     mapping(bytes32=>bool) validIds;
     
     // Oracalize querry-response events
@@ -21,69 +26,59 @@ contract ExampleContract is usingOraclize, Ownable, Destructible {
     event LogOraclizeQuery(string description);
     
     // events to fire when admin changes settings
-    event LogNewME(address newMEAddress, string reason);
-    event LogNewDelay(uint newDelay, string reason);
-    event LogNewRequestURL(string newURL, string reason);
+    event LogNewRequestURL(string newURL);
 
-    function ExampleContract(address meAddress) public payable {
-        ME = MillionEther(meAddress);
-        DELAY = 25200;
+    constructor() public {
         REQUEST_URL = "json(https://api.kraken.com/0/public/Ticker?pair=ETHUSD).result.XETHZUSD.p.1";
+        callbackGasLimit = 99159;  // 99159 - my estimation, 36062 - actual Oracalize response at Rinkeby
     }
-
+    
     function __callback(bytes32 myid, string result) public {
         require(validIds[myid]);
         require(msg.sender == oraclize_cbAddress());
-        LogResponseReceived(myid, result);
+
+        emit LogResponseReceived(myid, result);
         bytes memory tempEmptyStringTest = bytes(result);
         require(tempEmptyStringTest.length > 0);
         
-        uint oneEthInCents;
-        oneEthInCents = parseInt(result, 2);
-        assert(oneEthInCents > 0);
+        uint oneEthInCents = parseInt(result, 2);
+        assert(oneEthInCents > 0);  
         
-        uint oneCentInWei;
         oneCentInWei = 1 ether / oneEthInCents;
         assert(oneCentInWei > 0);
         
-        ME.oracleSetOneCentInWei(oneCentInWei);
-        
         delete validIds[myid];
-        updatePrice(DELAY);
     }
 
-    function updatePrice(uint update_delay) public payable onlyowner {
+    function getQueryPrice(uint EthUsdInCents, uint gasPriceInWei) pure returns (uint) {
+        return EthUsdInCents / 100 + callbackGasLimit * gasPriceInWei; // 1 cent for URL request + gas cost (gasLimit * gasPriceInWei)
+    }
+
+    function updatePrice(uint EthUsdInCents, uint gasPriceInWei) public payable {
+        // todo require correct ammount of money
+        oraclize_setCustomGasPrice(gasPriceInWei);
+
         if (oraclize_getPrice("URL") > address(this).balance) {
-            LogOraclizeQuery("Oraclize query was NOT sent, please add some ETH to cover for the query fee");
+            /// emit queryId EthUsdInCents gasPriceInWei
+            emit LogOraclizeQuery("Oraclize query was NOT sent, please add some ETH to cover for the query fee");
         } else {
-            LogOraclizeQuery("Oraclize query was sent, standing by for the answer...");
-            bytes32 queryId = oraclize_query(update_delay, "URL", REQUEST_URL);
+            emit LogOraclizeQuery("Oraclize query was sent, standing by for the answer...");
+            bytes32 queryId = oraclize_query(0, "URL", REQUEST_URL, callbackGasLimit);
             validIds[queryId] = true;
         }
     }
-    
-    // Set new defaults
-    function setME(address meAddress, string reason) external onlyowner returns(bool) {
-        ME = MillionEther(meAddress);
-        LogNewME(meAddress, reason);
-        return true;
+
+    // fine-tune callback gas limit
+    function setCallbackGasLimit(uint newCallbackGasLimit) external onlyOwner {
+        callbackGasLimit = newCallbackGasLimit;
     }
     
-    function setUpdatePeriod(uint newDelay, string reason) external onlyowner returns(bool) {
-        DELAY = newDelay;
-        LogNewDelay(newDelay, reason);
-        return true;
-    }
-    
-    function setGasPrice(uint newGasPriceInWei) external onlyowner returns(bool) {
-        oraclize_setCustomGasPrice(newGasPriceInWei);
-        GAS_PRICE = newGasPriceInWei;
-        return true;
-    }
-    
-    function setrequestURL(string newRequestURL, string reason) external onlyowner returns(bool) {
+    // set new request URL according to Oracalize API
+    function setrequestURL(string newRequestURL) external onlyOwner {
         REQUEST_URL = newRequestURL;
-        LogNewRequestURL(newRequestURL, reason);
-        return true;
+        emit LogNewRequestURL(newRequestURL);
     }
+
+    // function Excess()
+
 }
