@@ -13,12 +13,16 @@ Decentralized advertising platform.
 - Buy pixels and rent them out to advertisers.
 - Advertise your own product.
 
+### Smart contracts at Ethereum mainnet (Etherscan):
+- [OracleProxy](https://etherscan.io/address/0xbae9368d43e0299dc0280132f2c619ee9697e6e4) - fetches ETHUSD price from Kraken.com through Oracalize.
+
 ### Smart contracts at Rinkeby testnet (Etherscan):
 
 - [Million Ether Homepage 2](https://rinkeby.etherscan.io/address/0x98de3f35e9a3c39e6489e81ebbaa87b9fdf3bb79#code) - main user interface contract, immutable, stores ether and ERC721 token balances.
 - [Market](https://rinkeby.etherscan.io/address/0xd14e6edd741c591628703e0f9248511216aed221#code) - upgradable module, responsible for buy-sell operations and charity.
 - [Rentals](https://rinkeby.etherscan.io/address/0x988e534db317c660478905f3fdeab5ea621b7546#code) - upgradable module, responsible for rent operations.
 - [Ads](https://rinkeby.etherscan.io/address/0x52714f934eee585a98a2af8545c607cc6ab2b8f9#code) - upgradable module, responsible for placing ads.
+- [OracleProxy](https://rinkeby.etherscan.io/address/0xa3a45be10d4ac070435f488920dbbc908c25746f) - fetches ETHUSD price from Kraken.com through Oracalize.
 
 See code comments for tech details.
 
