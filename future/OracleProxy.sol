@@ -5,7 +5,7 @@ import "github.com/OpenZeppelin/openzeppelin-solidity/contracts/lifecycle/Destru
 import "github.com/OpenZeppelin/openzeppelin-solidity/contracts/lifecycle/Pausable.sol";
 import "github.com/oraclize/ethereum-api/oraclizeAPI.sol";
 import "github.com/OpenZeppelin/openzeppelin-solidity/contracts/math/SafeMath.sol ";
-/// https://rinkeby.etherscan.io/address/0xa3a45be10d4ac070435f488920dbbc908c25746f
+
 contract OracleProxy is Ownable, Destructible, Pausable, usingOraclize {
     using SafeMath for uint256;
     // cofirm it's the right Oracle proxy
