@@ -19,7 +19,6 @@ module.exports = function(deployer) {
 
   deployer.deploy(RentalsDisposable, MEH.address).then(() => {
     MEH.deployed().then(meh => {
-
         return meh.adminSetRentals(RentalsDisposable.address);
     });
 

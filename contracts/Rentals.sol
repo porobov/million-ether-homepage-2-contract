@@ -43,7 +43,6 @@ contract Rentals is MehModule {
         whenNotPaused
         returns (uint)
     {   
-        // TODO check everywhere. sell price can be any - might overflow
         for (uint i = 0; i < _blockList.length; i++) {
             require(landlord == ownerOf(_blockList[i]));
             rentOutBlock(_blockList[i], _rentPricePerPeriodWei);

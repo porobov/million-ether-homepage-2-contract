@@ -17,7 +17,7 @@ const BUY_MIXED_BLOCKS = true;
 const RENT = true;
 const ADS = true;
 const ADMIN = true;
-const CHECK_PRICE_DOUBLING = true;
+const CHECK_PRICE_DOUBLING = false;
 
 var admin = "";
 var user_1 = "";
@@ -827,7 +827,9 @@ if(ADMIN) { // (59, 59) - (60, 60), (1, 30) - (5, 40)
     const new_market = await MarketStub.deployed(); 
     const new_rentals = await RentalsStub.deployed();
     const new_ads = await AdsStub.deployed();
+
     // try connecting wrong modules
+    
     await assertThrows(market.adminSetOracle(new_ads.address, {from: admin, gas: 4712388}),
         "Connected Ads module as Oracle!");
     await assertThrows(me2.adminSetMarket(new_rentals.address, {from: admin, gas: 4712388}),
@@ -838,7 +840,7 @@ if(ADMIN) { // (59, 59) - (60, 60), (1, 30) - (5, 40)
         "Connected Ads module as Market!");
 
     // set Oracle (1,52,1,52)
-    
+
     await assertThrows(market.adminSetOracle(OracleProxyStub.address, {from: buyer, gas: 4712388}),
         "Some guy just set new Oracle!");
     await market.adminSetOracle(OracleProxyStub.address, {from: admin, gas: 4712388});
@@ -876,7 +878,6 @@ if(ADMIN) { // (59, 59) - (60, 60), (1, 30) - (5, 40)
     assert.equal(result, true,
         "Couldn't get 42 from new ads contract (a stub)!")
     await me2.adminSetAds(ads.address, {from: admin, gas: 4712388});
-
 
   })
 

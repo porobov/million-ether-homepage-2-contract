@@ -6,7 +6,7 @@ contract AdsStub is Destructible {
     
     bool public isAds = true;
 
-    function canPaintBlocks(
+    function canAdvertiseOnBlocks(
         address advertiser, 
         uint16[] _blockList
     ) 

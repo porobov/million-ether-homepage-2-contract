@@ -11,7 +11,7 @@ contract Ads is MehModule {
 
     // Keeps track of ads ids. Initial state represents the last image id of the previous 
     // version of the million ether homepage. See Market contract for more details. 
-    uint public numImages = 0;  // TODO
+    uint public numImages = 1000;
 
     // Needs rentals contract to get block rent status
     RentalsInterface public rentalsContract;
@@ -26,7 +26,7 @@ contract Ads is MehModule {
 
     /// @dev Places new ad to user owned or rented list of blocks. Returns new image id on success,
     ///  throws if user is not authorized to advertise (neither an owner nor renter). 
-    function paintBlocks(
+    function advertiseOnBlocks(
         address advertiser, 
         uint16[] _blockList,
         string imageSourceUrl, 
@@ -38,14 +38,13 @@ contract Ads is MehModule {
         whenNotPaused
         returns (uint)
     {   
-        require(canPaintBlocks(advertiser, _blockList));
+        require(canAdvertiseOnBlocks(advertiser, _blockList));
         numImages++;
         return numImages;
     }
 
-    ///        canAdvertiseOnBlocks TODO
     /// @dev Checks if user is authorized to advertise on all blocks in list (is an owner or renter).
-    function canPaintBlocks(
+    function canAdvertiseOnBlocks(
         address advertiser, 
         uint16[] _blockList
     ) 
@@ -54,13 +53,13 @@ contract Ads is MehModule {
         returns (bool)
     {   
         for (uint i = 0; i < _blockList.length; i++) {
-            require(canPaintBlock(advertiser, _blockList[i]));
+            require(canAdvertiseOnBlock(advertiser, _blockList[i]));
         }
         return true;
     }
-    //       canAdvertiseOnBlock TODO
+
     /// @dev Checks if user is authorized to advertise on a block (rents or owns a block).
-    function canPaintBlock(address _advertiser, uint16 blockId) 
+    function canAdvertiseOnBlock(address _advertiser, uint16 blockId) 
         internal 
         view
         returns (bool)

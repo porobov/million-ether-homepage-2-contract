@@ -50,7 +50,7 @@ contract Accounting is MEHAccessControl {
     /// @dev Deposits eth to msg.sender balance.
     function depositFunds() internal whenNotPaused {
         _depositTo(msg.sender, msg.value);
-        emit LogContractBalance(msg.sender, int256(+msg.value));
+        emit LogContractBalance(msg.sender, int256(msg.value));
     }
 
     /// @dev Increases recipients internal balance.

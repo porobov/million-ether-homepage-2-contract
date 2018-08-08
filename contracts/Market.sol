@@ -32,13 +32,13 @@ contract Market is MehModule {
     // beign used for charity purposes only. Charities in priority are published here:
     // https://github.com/porobov/charities-accepting-ether (pull requests are welcome).
     // The address string is "all you need is love" in hex format - insures nobody has access to it.
-    // Builded trust (trust history) vs trust by code... todo
+    // See white paper for thoughts on trust. 
     address public constant charityVault = 0x616c6C20796F75206e656564206973206C6f7665; 
     uint public charityPayed = 0;
 
     // Map from block ID to their corresponding price tag.
     // uint256 instead of uint16 for ERC721 compliance
-    mapping (uint16 => uint256) blockIdToPrice;
+    mapping (uint16 => uint256) public blockIdToPrice;
     
     // Keeps track of buy-sell events
     uint public numOwnershipStatuses = 0;
@@ -177,7 +177,7 @@ contract Market is MehModule {
         OracleProxy candidateContract = OracleProxy(_address);
         require(candidateContract.isOracleProxy());
         usd = candidateContract;
-        emit LogModuleUpgrade(_address, "OracleProxy");  // todo 
+        emit LogModuleUpgrade(_address, "OracleProxy");
     }
 
     /// @dev import old million ether contract blocks. See oldMillionEther variable 
@@ -185,7 +185,7 @@ contract Market is MehModule {
     function adminImportOldMEBlock(uint8 x, uint8 y) external onlyOwner {
         uint16 blockId = meh.blockID(x, y);
         require(!(exists(blockId)));
-        (address oldLandlord, uint i, uint s) = oldMillionEther.getBlockInfo(x, y);  // WARN! sell price s is in wei
+        (address oldLandlord, uint i, uint s) = oldMillionEther.getBlockInfo(x, y);  // WARN! sell price is in wei
         require(oldLandlord != address(0));
         mintCrowdsaleBlock(oldLandlord, blockId);
     }

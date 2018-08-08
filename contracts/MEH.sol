@@ -124,7 +124,7 @@ contract MEH is MehERC721, Accounting {
 
     /// @notice lets a message sender to mark blocks for sale at price set for each block in wei
     /// @dev (priceForEachBlockCents = 0 - not for sale)
-    function sellArea(uint8 fX, uint8 fY, uint8 toX, uint8 toY, uint priceForEachBlockWei) // TODO sellTo
+    function sellArea(uint8 fX, uint8 fY, uint8 toX, uint8 toY, uint priceForEachBlockWei)
         external 
         whenNotPaused
     {   
@@ -154,7 +154,7 @@ contract MEH is MehERC721, Accounting {
         
     /// @notice Rent out an area of blocks at coordinates [fromX, fromY, toX, toY] at a price for each block in wei
     /// @dev if _rentPricePerPeriodWei = 0 then makes area not available for rent
-    function rentOutArea(uint8 fX, uint8 fY, uint8 toX, uint8 toY, uint _rentPricePerPeriodWei)  // TODO maxRentPeriod, minRentPeriod,  
+    function rentOutArea(uint8 fX, uint8 fY, uint8 toX, uint8 toY, uint _rentPricePerPeriodWei)  
         external
         whenNotPaused
     {   
@@ -169,7 +169,7 @@ contract MEH is MehERC721, Accounting {
     
     /// @notice Rent an area of blocks at coordinates [fromX, fromY, toX, toY] for a number of periods specified
     ///  (period length is specified in rentals contract)
-    function rentArea(uint8 fX, uint8 fY, uint8 toX, uint8 toY, uint _numberOfPeriods)  // TODO RentFrom
+    function rentArea(uint8 fX, uint8 fY, uint8 toX, uint8 toY, uint _numberOfPeriods)
         external
         payable
         whenNotPaused
@@ -182,7 +182,7 @@ contract MEH is MehERC721, Accounting {
 
         // try to rent blocks through rentals contract
         // will get an id of rent-rentout operation if succeeds (if all blocks available for rent)
-        uint id = rentals.rentBlocks(msg.sender, _numberOfPeriods, blocksList(fX, fY, toX, toY));   // TODO RentFrom
+        uint id = rentals.rentBlocks(msg.sender, _numberOfPeriods, blocksList(fX, fY, toX, toY));
         emit LogRents(id, fX, fY, toX, toY, _numberOfPeriods, 0);
     }
 
@@ -223,7 +223,7 @@ contract MEH is MehERC721, Accounting {
 
         // try to place ads through ads contract
         // will get an image id if succeeds (if advertiser owns or rents all blocks within area)
-        uint AdsId = ads.paintBlocks(msg.sender, blocksList(fX, fY, toX, toY), imageSource, link, text);
+        uint AdsId = ads.advertiseOnBlocks(msg.sender, blocksList(fX, fY, toX, toY), imageSource, link, text);
         emit LogAds(AdsId, fX, fY, toX, toY, imageSource, link, text, msg.sender);
     }
 
@@ -243,7 +243,7 @@ contract MEH is MehERC721, Accounting {
         require(isLegalCoordinates(fX, fY, toX, toY));
 
         // querry permission at ads contract
-        return ads.canPaintBlocks(advertiser, blocksList(fX, fY, toX, toY));
+        return ads.canAdvertiseOnBlocks(advertiser, blocksList(fX, fY, toX, toY));
     }
 
 // ** INFO GETTERS ** //
@@ -252,8 +252,6 @@ contract MEH is MehERC721, Accounting {
     function getBlockOwner(uint8 x, uint8 y) external view returns (address) {
         return ownerOf(blockID(x, y));
     }
-
-    // todo getBalanceOf
 
 // ** UTILS ** //
     
@@ -287,6 +285,7 @@ contract MEH is MehERC721, Accounting {
             }
         }
     }
+    
     /// @notice insures that area coordinates are within 100x100 field and 
     ///  from-coordinates >= to-coordinates
     /// @dev function is used instead of modifier as modifier 
@@ -303,6 +302,5 @@ contract MEH is MehERC721, Accounting {
     {
         return ((_fX >= 1) && (_fY >=1)  && (_toX <= 100) && (_toY <= 100) 
             && (_fX <= _toX) && (_fY <= _toY));
-        // TODO need to limit total number of blocks here?
     }
 }
