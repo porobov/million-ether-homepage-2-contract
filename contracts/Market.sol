@@ -27,12 +27,8 @@ contract Market is MehModule {
     OracleProxy public usd;
 
     // Internal charity funds vault. 80% of initial sale income goes to this vault. 
-    
-    // The distribution of funds among charities is done manually through a dedicated address,
-    // beign used for charity purposes only. Charities in priority are published here:
-    // https://github.com/porobov/charities-accepting-ether (pull requests are welcome).
     // The address string is "all you need is love" in hex format - insures nobody has access to it.
-    // See white paper for thoughts on trust. 
+    // See white paper for details on charity distribution.
     address public constant charityVault = 0x616c6C20796F75206e656564206973206C6f7665; 
     uint public charityPayed = 0;
 
@@ -225,7 +221,8 @@ contract Market is MehModule {
 
     /// @dev transfers 80% of payers funds to charity and 20% to contract owner (admin)
     function transferFundsToAdminAndCharity(address _payer, uint _amount) private {
-        uint goesToCharity = _amount * 80 / 100;  // 80% goes to charity  // check for oveflow too (in case of oracle mistake)
+        // 80% goes to charity  // check for oveflow too (in case of oracle mistake)
+        uint goesToCharity = _amount * 80 / 100;  
         transferFunds(_payer, charityVault, goesToCharity);
         transferFunds(_payer, owner, _amount - goesToCharity);
     }
