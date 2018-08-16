@@ -1,6 +1,6 @@
 var HDWalletProvider = require("truffle-hdwallet-provider");
 
-var secrets = require('./ignored.js');
+var secrets = require('./secrets.js');
 var infura_apikey = secrets.infura_api;
 var mnemonic = secrets.mnemonic;
 
