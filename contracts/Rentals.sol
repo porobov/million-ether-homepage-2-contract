@@ -37,14 +37,14 @@ contract Rentals is MehModule {
 // ** RENT AOUT BLOCKS ** //
     
     /// @dev Rent out a list of blocks referenced by block ids. Set rent price per period in wei.
-    function rentOutBlocks(address landlord, uint _rentPricePerPeriodWei, uint16[] _blockList) 
+    function rentOutBlocks(address _landlord, uint _rentPricePerPeriodWei, uint16[] _blockList) 
         external
         onlyMeh
         whenNotPaused
         returns (uint)
     {   
         for (uint i = 0; i < _blockList.length; i++) {
-            require(landlord == ownerOf(_blockList[i]));
+            require(_landlord == ownerOf(_blockList[i]));
             rentOutBlock(_blockList[i], _rentPricePerPeriodWei);
         }
         numRentStatuses++;
@@ -62,7 +62,7 @@ contract Rentals is MehModule {
 // ** RENT BLOCKS ** //
     
     /// @dev Rent a list of blocks referenced by block ids for a number of periods.
-    function rentBlocks(address renter, uint _numberOfPeriods, uint16[] _blockList) 
+    function rentBlocks(address _renter, uint _numberOfPeriods, uint16[] _blockList) 
         external
         onlyMeh
         whenNotPaused
@@ -72,7 +72,7 @@ contract Rentals is MehModule {
         require(_numberOfPeriods > 0);
 
         for (uint i = 0; i < _blockList.length; i++) {
-            rentBlock(renter, _blockList[i], _numberOfPeriods);
+            rentBlock(_renter, _blockList[i], _numberOfPeriods);
         }
         numRentStatuses++;
         return numRentStatuses;
@@ -87,7 +87,9 @@ contract Rentals is MehModule {
         address landlord = ownerOf(_blockId);
         require(_renter != landlord);
 
-        // get price, throws if not for rent (if rent price == 0)
+        // throws if not for rent (if rent price == 0)
+        require(isForRent(_blockId));
+        // get price
         uint totalRent = getRentPrice(_blockId).mul(_numberOfPeriods);  // overflow safe
         
         transferFunds(_renter, landlord, totalRent);
@@ -111,7 +113,6 @@ contract Rentals is MehModule {
     /// @dev Gets rent price for block. Throws if not for rent or if 
     ///  current rent is active.
     function getRentPrice(uint16 _blockId) internal view returns (uint) {
-        require(isForRent(_blockId));
         require(!(isRented(_blockId)));
         return blockIdToRentPrice[_blockId];
     }
@@ -123,7 +124,14 @@ contract Rentals is MehModule {
     }
 
     /// @dev Creates new rent deal.
-    function createRentDeal(uint16 _blockId, address _renter, uint _rentedFrom, uint _numberOfPeriods) private {
+    function createRentDeal(
+        uint16 _blockId, 
+        address _renter, 
+        uint _rentedFrom, 
+        uint _numberOfPeriods
+    ) 
+        private 
+    {
         blockIdToRentDeal[_blockId].renter = _renter;
         blockIdToRentDeal[_blockId].rentedFrom = _rentedFrom;
         blockIdToRentDeal[_blockId].numberOfPeriods = _numberOfPeriods;

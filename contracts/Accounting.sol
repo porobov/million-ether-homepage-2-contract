@@ -77,8 +77,8 @@ contract Accounting is MEHAccessControl {
         payee.transfer(payment);
     }
 
-    /// @dev Checks if a msg.sender has enough balance to pay the price needed.
-    function canPay(uint needed) internal view returns (bool) {
-        return (msg.value.add(balances[msg.sender]) >= needed);
+    /// @dev Checks if a msg.sender has enough balance to pay the price _needed.
+    function canPay(uint _needed) internal view returns (bool) {
+        return (msg.value.add(balances[msg.sender]) >= _needed);
     }
 }

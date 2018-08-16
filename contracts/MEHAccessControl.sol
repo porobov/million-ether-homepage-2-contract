@@ -7,7 +7,7 @@ contract MarketInerface {
     function sellBlocks(address, uint, uint16[]) external returns (uint) {}
     function isMarket() public view returns (bool) {}
     function isOnSale(uint16) public view returns (bool) {}
-    function areaPrice(uint16[] memory) public view returns (uint) {}
+    function areaPrice(uint16[]) public view returns (uint) {}
 }
 
 contract RentalsInterface {

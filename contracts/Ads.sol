@@ -27,25 +27,25 @@ contract Ads is MehModule {
     /// @dev Places new ad to user owned or rented list of blocks. Returns new image id on success,
     ///  throws if user is not authorized to advertise (neither an owner nor renter). 
     function advertiseOnBlocks(
-        address advertiser, 
+        address _advertiser, 
         uint16[] _blockList,
-        string imageSourceUrl, 
-        string adUrl,
-        string adText
+        string, 
+        string,
+        string
     ) 
         external
         onlyMeh
         whenNotPaused
         returns (uint)
     {   
-        require(canAdvertiseOnBlocks(advertiser, _blockList));
+        require(canAdvertiseOnBlocks(_advertiser, _blockList));
         numImages++;
         return numImages;
     }
 
     /// @dev Checks if user is authorized to advertise on all blocks in list (is an owner or renter).
     function canAdvertiseOnBlocks(
-        address advertiser, 
+        address _advertiser, 
         uint16[] _blockList
     ) 
         public
@@ -53,7 +53,7 @@ contract Ads is MehModule {
         returns (bool)
     {   
         for (uint i = 0; i < _blockList.length; i++) {
-            require(canAdvertiseOnBlock(advertiser, _blockList[i]));
+            require(canAdvertiseOnBlock(_advertiser, _blockList[i]));
         }
         return true;
     }

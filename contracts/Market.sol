@@ -1,4 +1,4 @@
-pragma solidity ^0.4.18;
+pragma solidity ^0.4.24;
 
 import "./MehModule.sol";
 import "./mockups/OracleProxy.sol";
@@ -60,21 +60,21 @@ contract Market is MehModule {
 // ** BUY BLOCKS ** //
     
     /// @dev Lets buy a list of blocks by block ids
-    function buyBlocks(address buyer, uint16[] _blockList) 
+    function buyBlocks(address _buyer, uint16[] _blockList) 
         external
         onlyMeh
         whenNotPaused
         returns (uint)
     {   
         for (uint i = 0; i < _blockList.length; i++) {
-            _buyBlock(buyer, _blockList[i]);
+            buyBlock(_buyer, _blockList[i]);
         }
         numOwnershipStatuses++;
         return numOwnershipStatuses;
     }
 
     /// @dev buys 1 block
-    function _buyBlock(address _buyer, uint16 _blockId) private {
+    function buyBlock(address _buyer, uint16 _blockId) private {
         // checks if a block id is already minted (if ERC721 token exists)
         if (exists(_blockId)) {
             // if minted it means that the block has an owner, try to by from owner
@@ -134,15 +134,15 @@ contract Market is MehModule {
 // ** SELL BLOCKS ** //
     
     /// @dev Lets seller sell a list of blocks by block ids. 
-    function sellBlocks(address seller, uint priceForEachBlockWei, uint16[] _blockList) 
+    function sellBlocks(address _seller, uint priceForEachBlockWei, uint16[] _blockList) 
         external
         onlyMeh
         whenNotPaused
         returns (uint)
     {   
         for (uint i = 0; i < _blockList.length; i++) {
-            require(seller == ownerOf(_blockList[i]));
-            _sellBlock(_blockList[i], priceForEachBlockWei);
+            require(_seller == ownerOf(_blockList[i]));
+            sellBlock(_blockList[i], priceForEachBlockWei);
         }
         numOwnershipStatuses++;
         return numOwnershipStatuses;
@@ -150,7 +150,7 @@ contract Market is MehModule {
 
     /// @dev Sets or updates price tag for a block id.
     ///  _sellPriceWei = 0 - cancel sale
-    function _sellBlock(uint16 _blockId, uint _sellPriceWei) private {
+    function sellBlock(uint16 _blockId, uint _sellPriceWei) private {
         setSellPrice(_blockId, _sellPriceWei);
     }
 
@@ -160,12 +160,12 @@ contract Market is MehModule {
 
 // ** ADMIN ** //
 
-    /// @dev transfer charity amount to an address (internally).
-    function adminTransferCharity(address charityAddress, uint amount) external onlyOwner {
-        require(charityAddress != owner);
-        transferFunds(charityVault, charityAddress, amount);
-        charityPayed += amount;
-        emit LogCharityTransfer(charityAddress, amount);
+    /// @dev transfer charity _amount to an address (internally).
+    function adminTransferCharity(address _charityAddress, uint _amount) external onlyOwner {
+        require(_charityAddress != owner);
+        transferFunds(charityVault, _charityAddress, _amount);
+        charityPayed += _amount;
+        emit LogCharityTransfer(_charityAddress, _amount);
     }
 
     /// @dev set or reset an Oracle Proxy
@@ -181,7 +181,8 @@ contract Market is MehModule {
     function adminImportOldMEBlock(uint8 x, uint8 y) external onlyOwner {
         uint16 blockId = meh.blockID(x, y);
         require(!(exists(blockId)));
-        (address oldLandlord, uint i, uint s) = oldMillionEther.getBlockInfo(x, y);  // WARN! sell price is in wei
+        // WARN! sell price is in wei
+        (address oldLandlord, uint i, uint s) = oldMillionEther.getBlockInfo(x, y);  
         require(oldLandlord != address(0));
         mintCrowdsaleBlock(oldLandlord, blockId);
     }
@@ -192,12 +193,12 @@ contract Market is MehModule {
     function areaPrice(uint16[] _blockList)
         external 
         view 
-        returns (uint totalPrice) 
+        returns (uint _totalPrice) 
     {
-        totalPrice = 0;
+        _totalPrice = 0;
         for (uint i = 0; i < _blockList.length; i++) {
             // As sell price value is arbitrary add is overflow-safe here
-            totalPrice = totalPrice.add(getBlockPrice(_blockList[i]));
+            _totalPrice = _totalPrice.add(getBlockPrice(_blockList[i]));
         }
     }
 
@@ -237,6 +238,5 @@ contract Market is MehModule {
     /// @dev transfer ERC721 token
     function transferNFT(address _from, address _to, uint16 _blockId) private {
         meh.transferFrom(_from, _to, _blockId);  // safeTransfer has external call
-        return;
     }
 }
