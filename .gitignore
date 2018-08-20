@@ -1,4 +1,5 @@
 node_modules/*
+build/*
 logs/*
 secrets.js
 !node_modules/openzeppelin-solidity/

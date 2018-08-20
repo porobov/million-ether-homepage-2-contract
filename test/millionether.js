@@ -736,13 +736,13 @@ if(ADMIN) { // (59, 59) - (60, 60), (1, 30) - (5, 40)
     const oldOwner = "0xca9f7d9ad4127e374cdab4bd0a884790c1b03946";
 
     await me2.buyArea(60, 60, 60, 60, {from: buyer, value: web3.toWei(1000, 'wei'), gas: 4712388});
-    await assertThrows(market.adminImportOldMEBlock(60, 60, {from: admin, gas: 4712388}),
+    await assertThrows(me2.adminImportOldMEBlock(60, 60, {from: admin, gas: 4712388}),
         "Imported on top of an owned block!");
-    await assertThrows(market.adminImportOldMEBlock(60, 60, {from: admin, gas: 4712388}),
+    await assertThrows(me2.adminImportOldMEBlock(60, 60, {from: admin, gas: 4712388}),
         "Imported block with no landlord!");
-    await assertThrows(market.adminImportOldMEBlock(59, 59, {from: buyer, gas: 4712388}),
+    await assertThrows(me2.adminImportOldMEBlock(59, 59, {from: buyer, gas: 4712388}),
         "Only admin can import blocks!");
-    var tx = await market.adminImportOldMEBlock(59, 59, {from: admin, gas: 4712388});
+    var tx = await me2.adminImportOldMEBlock(59, 59, {from: admin, gas: 4712388});
     logGas(tx, "Import OldME Block");
     
     const first_block_owner = await me2.getBlockOwner.call(59, 59);

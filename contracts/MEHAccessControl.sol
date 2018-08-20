@@ -8,6 +8,7 @@ contract MarketInerface {
     function isMarket() public view returns (bool) {}
     function isOnSale(uint16) public view returns (bool) {}
     function areaPrice(uint16[]) public view returns (uint) {}
+    function importOldMEBlock(uint8, uint8) external returns (uint, address) {}
 }
 
 contract RentalsInterface {

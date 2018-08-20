@@ -178,13 +178,15 @@ contract Market is MehModule {
 
     /// @dev import old million ether contract blocks. See oldMillionEther variable 
     ///  description above for more.
-    function adminImportOldMEBlock(uint8 x, uint8 y) external onlyOwner {
-        uint16 blockId = meh.blockID(x, y);
+    function importOldMEBlock(uint8 _x, uint8 _y) external onlyMeh returns (uint, address) {
+        uint16 blockId = meh.blockID(_x, _y);
         require(!(exists(blockId)));
         // WARN! sell price is in wei
-        (address oldLandlord, uint i, uint s) = oldMillionEther.getBlockInfo(x, y);  
+        (address oldLandlord, uint i, uint s) = oldMillionEther.getBlockInfo(_x, _y);  
         require(oldLandlord != address(0));
         mintCrowdsaleBlock(oldLandlord, blockId);
+        numOwnershipStatuses++;
+        return (numOwnershipStatuses, oldLandlord);
     }
 
 // ** INFO ** //

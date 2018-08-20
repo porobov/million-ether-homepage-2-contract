@@ -268,6 +268,15 @@ contract MEH is MehERC721, Accounting {
         return ads.canAdvertiseOnBlocks(advertiser, blocksList(fromX, fromY, toX, toY));
     }
 
+// ** IMPORT BLOCKS ** //
+
+    /// @notice import blocks from previous version Million Ether Homepage
+    function adminImportOldMEBlock(uint8 x, uint8 y) external onlyOwner {
+        (uint id, address newLandlord) = market.importOldMEBlock(x, y);
+        emit LogBuys(id, x, y, x, y, newLandlord);
+    }
+
+
 // ** INFO GETTERS ** //
     
     /// @notice get an owner(address) of block at a specified coordinates
