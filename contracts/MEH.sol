@@ -276,7 +276,6 @@ contract MEH is MehERC721, Accounting {
         emit LogBuys(id, x, y, x, y, newLandlord);
     }
 
-
 // ** INFO GETTERS ** //
     
     /// @notice get an owner(address) of block at a specified coordinates
