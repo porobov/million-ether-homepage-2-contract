@@ -1,4 +1,4 @@
-var OldeMillionEther = artifacts.require("./mockups/OldeMillionEther.sol");
+var OldeMillionEther = artifacts.require("./mockups/OldeMillionEtherMock.sol");
 var MillionEther = artifacts.require("./mockups/MEHDisposable.sol"  );
 var Market = artifacts.require("./mockups/MarketDisposable.sol");
 var Ads = artifacts.require("./Ads.sol");
@@ -142,12 +142,6 @@ contract('MillionEther', function(accounts) {
         event.watch(wrappedHandler);
       });
   }
-
-
-
-
-
-
 
 
 

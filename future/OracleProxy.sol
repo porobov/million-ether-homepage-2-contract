@@ -1,10 +1,10 @@
 pragma solidity ^0.4.11;
 
-import "github.com/OpenZeppelin/openzeppelin-solidity/contracts/ownership/Ownable.sol";
-import "github.com/OpenZeppelin/openzeppelin-solidity/contracts/lifecycle/Destructible.sol";
-import "github.com/OpenZeppelin/openzeppelin-solidity/contracts/lifecycle/Pausable.sol";
-import "github.com/oraclize/ethereum-api/oraclizeAPI.sol";
-import "github.com/OpenZeppelin/openzeppelin-solidity/contracts/math/SafeMath.sol ";
+import "./oraclizeAPI_0.5.sol";
+import "./math/SafeMath.sol";
+import "./lifecycle/Destructible.sol";
+import "./lifecycle/Pausable.sol";
+import "./ownership/Ownable.sol";
 
 contract OracleProxy is Ownable, Destructible, Pausable, usingOraclize {
     using SafeMath for uint256;

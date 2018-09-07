@@ -91,7 +91,8 @@ contract MEH is MehERC721, Accounting {
     );
 
     /// @notice emited when an ad is placed to an area
-    event LogAds(uint ID, 
+    event LogAds(
+        uint ID, 
         uint8 fromX,
         uint8 fromY,
         uint8 toX,

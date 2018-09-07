@@ -2,7 +2,7 @@ pragma solidity ^0.4.24;
 
 import "./MehModule.sol";
 import "./mockups/OracleProxy.sol";
-import "./mockups/OldeMillionEther.sol";
+import "./mockups/OldeMillionEtherInterface.sol";
 
 // @title Market: Pluggable module for MEH contract responsible for buy-sell operations including 
 //  initial sale. 80% of initial sale income goes to charity. Initial sale price doubles every 1000 
@@ -18,7 +18,7 @@ contract Market is MehModule {
     // strated to rise quickly in March 2017 the pixels became too expensive and nobody bought 
     // new pixels since then. This new version of MEH is priced in USD.
     // Old MEH is here - https://etherscan.io/address/0x15dbdB25f870f21eaf9105e68e249E0426DaE916. 
-    OldeMillionEther public oldMillionEther;
+    OldeMillionEtherInterface public oldMillionEther;
 
     // Address of an oracle proxy, pluggable. For flexibility sake OracleProxy is a separate module. 
     // The only function of an OracleProxy is to provide usd price. Whenever a better usd Oracle 
@@ -53,7 +53,7 @@ contract Market is MehModule {
         MehModule(_mehAddress)
         public
     {
-        oldMillionEther = OldeMillionEther(_oldMehAddress);
+        oldMillionEther = OldeMillionEtherInterface(_oldMehAddress);
         adminSetOracle(_oracleProxyAddress);
     }
 

@@ -19,7 +19,7 @@ pragma solidity ^0.4.2;
 
 import "openzeppelin-solidity/contracts/lifecycle/Destructible.sol";
 
-contract OldeMillionEther is Destructible {
+contract OldeMillionEtherMock is Destructible {
 
     struct Block {
         address landlord;

@@ -11,7 +11,7 @@ contract Ads is MehModule {
 
     // Keeps track of ads ids. Initial state represents the last image id of the previous 
     // version of the million ether homepage. See Market contract for more details. 
-    uint public numImages = 1000;
+    uint public numImages = 69;
 
     // Needs rentals contract to get block rent status
     RentalsInterface public rentalsContract;
