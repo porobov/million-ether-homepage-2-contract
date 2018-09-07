@@ -14,10 +14,10 @@ Decentralized advertising platform.
 - Advertise your own product.
 
 ### Smart contracts on Ethereum mainnet:
-- [Million Ether Homepage 2 (MEH)](https://rinkeby.etherscan.io/address/0xCEf41878Db032586C835eE0890484399402A64f6#code) - main user interface contract, immutable, stores ether and ERC721 token balances.
-- [Market](https://rinkeby.etherscan.io/address/0xa77ab358361d0f6ae1014cb071563138be3b94c3#code) - upgradable module, responsible for buy-sell operations and charity.
-- [Rentals](https://rinkeby.etherscan.io/address/0x9f5280418d7a2a7df838a946fccbbf4f2f018233#code) - upgradable module, responsible for rent operations.
-- [Ads](https://rinkeby.etherscan.io/address/0x8382c376d1a72ba8846ab03a3dce2bd94632f7dc#code) - upgradable module, responsible for placing ads.
+- [Million Ether Homepage 2 (MEH)](https://etherscan.io/address/0xCEf41878Db032586C835eE0890484399402A64f6#code) - main user interface contract, immutable, stores ether and ERC721 token balances.
+- [Market](https://etherscan.io/address/0xa77ab358361d0f6ae1014cb071563138be3b94c3#code) - upgradable module, responsible for buy-sell operations and charity.
+- [Rentals](https://etherscan.io/address/0x9f5280418d7a2a7df838a946fccbbf4f2f018233#code) - upgradable module, responsible for rent operations.
+- [Ads](https://etherscan.io/address/0x8382c376d1a72ba8846ab03a3dce2bd94632f7dc#code) - upgradable module, responsible for placing ads.
 - [OracleProxy](https://etherscan.io/address/0xbae9368d43e0299dc0280132f2c619ee9697e6e4) - fetches ETHUSD price from Kraken.com through Oracalize.
 
 ### Smart contracts on Rinkeby testnet:
